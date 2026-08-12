@@ -1,0 +1,28 @@
+[build-system]
+requires = ["maturin==1.14.1"]
+build-backend = "maturin"
+
+[project]
+name = "keys-tools"
+description = "Fast, focused native terminal tools"
+readme = "README.md"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "Keys" }]
+keywords = ["cli", "terminal", "system-information", "games"]
+classifiers = [
+  "Environment :: Console",
+  "Programming Language :: Rust",
+  "Topic :: System :: Systems Administration",
+]
+dynamic = ["version"]
+
+[project.urls]
+Homepage = "https://github.com/keys-i/tools"
+Issues = "https://github.com/keys-i/tools/issues"
+Source = "https://github.com/keys-i/tools"
+
+[tool.maturin]
+bindings = "bin"
+compatibility = "pypi"
+strip = true
