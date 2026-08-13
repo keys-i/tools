@@ -1,113 +1,197 @@
-use std::collections::HashSet;
-use std::env;
-use std::ffi::OsStr;
-use std::fs;
-use std::io::Read as _;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+mod action;
+mod puzzle;
+mod turns;
+
+use std::io::{self, IsTerminal as _, Write};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use crossterm::cursor::{Hide, MoveTo, Show};
+use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
+use crossterm::terminal::{
+    BeginSynchronizedUpdate, Clear, ClearType, DisableLineWrap, EnableLineWrap,
+    EndSynchronizedUpdate, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
+    enable_raw_mode, size,
+};
+use crossterm::{execute, queue};
 
 use crate::{VERSION, json_string, use_color};
 
-const HELP: &str = "One launcher for terminal games\n\nUsage:\n  games [list] [--plain | --json]\n  games info NAME\n  games run NAME [ARG ...]\n\nOptions:\n  --plain     Stable text without decoration\n  --json      Machine-readable game list\n  -h, --help  Show this help\n  -V, --version  Show the version\n\nExtra .game manifests are read from TOOLS_GAME_PATH and the user data directory.";
-const MAX_MANIFEST_BYTES: u64 = 64 * 1024;
-const MAX_MANIFESTS: usize = 256;
+const HELP: &str = "Native clean-room terminal arcade\n\nUsage:\n  games\n  games list [--plain | --json]\n  games info NAME\n  games run NAME [--seed NUMBER]\n\nOptions:\n  --plain       Stable text without decoration\n  --json        Machine-readable game list\n  --seed NUMBER Reproducible randomized setup\n  -h, --help    Show this help\n  -V, --version Show the version\n\nInteractive controls: arrows or WASD; Esc returns to the menu. Most modes use r to restart and q to quit; text modes use Ctrl-R and Ctrl-C.";
 
-#[derive(Clone, Debug, PartialEq)]
-struct Game {
-    name: String,
-    command: String,
-    summary: String,
-    source: String,
-    license: String,
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Input {
+    Up,
+    Down,
+    Left,
+    Right,
+    Enter,
+    Backspace,
+    Char(char),
 }
 
-const BUILTINS: &[(&str, &str, &str, &str, &str)] = &[
-    (
-        "balatro",
-        "balatro_tui",
-        "Deck-building roguelike",
-        "https://github.com/Passeriform/BalatroTUI",
-        "GPL-3.0",
-    ),
-    (
-        "botany",
-        "botany.py",
-        "Grow a persistent terminal plant",
-        "https://github.com/jifunks/botany",
-        "ISC",
-    ),
-    (
-        "brogue",
-        "brogue",
-        "Classic single-player roguelike",
-        "https://github.com/tmewett/BrogueCE",
-        "AGPL-3.0",
-    ),
-    (
-        "pokete",
-        "pokete",
-        "Creature-catching terminal game",
-        "https://github.com/lxgr-linux/pokete",
-        "GPL-3.0",
-    ),
-    (
-        "rebels",
-        "rebels",
-        "Space-pirate basketball",
-        "https://github.com/ricott1/rebels-in-the-sky",
-        "GPL-3.0",
-    ),
-    (
-        "snake",
-        "snake",
-        "Minimal terminal Snake",
-        "https://github.com/wick3dr0se/snake",
-        "GPL-3.0",
-    ),
-    (
-        "tttui",
-        "tttui",
-        "Terminal typing test",
-        "https://github.com/reidoboss/tttui",
-        "MIT",
-    ),
-    (
-        "2048",
-        "tui-2048",
-        "Terminal 2048 puzzle",
-        "https://github.com/ps06756/tui-2048",
-        "MIT",
-    ),
-    (
-        "wordle",
-        "wordle.raku",
-        "Raku Wordle implementation",
-        "https://github.com/m-dango/raku-wordle",
-        "Artistic-2.0",
-    ),
-    (
-        "raycaster",
-        "awkaster.awk",
-        "gawk raycasting demo",
-        "https://github.com/TheMozg/awk-raycaster",
-        "MIT",
-    ),
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Outcome {
+    Playing,
+    Won(String),
+    Lost(String),
+}
+
+pub(crate) struct Scene {
+    pub title: &'static str,
+    pub status: String,
+    pub lines: Vec<String>,
+    pub help: &'static str,
+}
+
+pub(crate) trait Game {
+    fn input(&mut self, input: Input);
+    fn tick(&mut self) {}
+    fn tick_rate(&self) -> Option<Duration> {
+        None
+    }
+    fn scene(&self, width: u16, height: u16) -> Scene;
+    fn outcome(&self) -> &Outcome;
+    fn accepts_text(&self) -> bool {
+        false
+    }
+}
+
+#[derive(Clone, Debug)]
+pub(crate) struct Rng(u64);
+
+impl Rng {
+    pub fn new(seed: u64) -> Self {
+        Self(seed)
+    }
+
+    pub fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut value = self.0;
+        value = (value ^ (value >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        value = (value ^ (value >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        value ^ (value >> 31)
+    }
+
+    pub fn index(&mut self, length: usize) -> usize {
+        if length == 0 {
+            0
+        } else {
+            (self.next() % length as u64) as usize
+        }
+    }
+
+    pub fn chance(&mut self, numerator: u64, denominator: u64) -> bool {
+        denominator != 0 && self.next() % denominator < numerator
+    }
+}
+
+struct ModeSpec {
+    name: &'static str,
+    title: &'static str,
+    summary: &'static str,
+    factory: fn(u64) -> Box<dyn Game>,
+}
+
+const MODES: &[ModeSpec] = &[
+    ModeSpec {
+        name: "delve",
+        title: "DELVE",
+        summary: "Escape a compact three-floor dungeon",
+        factory: action::delve,
+    },
+    ModeSpec {
+        name: "orbit",
+        title: "ORBIT COURT",
+        summary: "Win a twelve-possession space match",
+        factory: turns::orbit,
+    },
+    ModeSpec {
+        name: "serpent",
+        title: "SERPENT RUN",
+        summary: "Eat twelve sparks without hitting the wall",
+        factory: action::serpent,
+    },
+    ModeSpec {
+        name: "merge",
+        title: "NUMBER MERGE",
+        summary: "Slide matching tiles to reach 256",
+        factory: puzzle::merge,
+    },
+    ModeSpec {
+        name: "vector",
+        title: "EXIT VECTOR",
+        summary: "Find an access card and escape a raycast maze",
+        factory: action::vector,
+    },
+    ModeSpec {
+        name: "cards",
+        title: "HAND THRESHOLD",
+        summary: "Build scoring card hands across three rounds",
+        factory: puzzle::cards,
+    },
+    ModeSpec {
+        name: "seedling",
+        title: "SEEDLING",
+        summary: "Guide a plant through a seven-day cycle",
+        factory: turns::seedling,
+    },
+    ModeSpec {
+        name: "sprint",
+        title: "TYPE SPRINT",
+        summary: "Complete an original prompt with five mistakes or fewer",
+        factory: puzzle::sprint,
+    },
+    ModeSpec {
+        name: "keybed",
+        title: "KEYBED",
+        summary: "Repeat an eight-note visual melody",
+        factory: turns::keybed,
+    },
+    ModeSpec {
+        name: "glyphs",
+        title: "FIVE GLYPHS",
+        summary: "Find a five-letter answer in six guesses",
+        factory: puzzle::glyphs,
+    },
+    ModeSpec {
+        name: "scout",
+        title: "FIELD SCOUT",
+        summary: "Recruit a creature and reach the field gate",
+        factory: turns::scout,
+    },
 ];
 
 pub fn run(arguments: Vec<String>) -> Result<i32, String> {
     let mut arguments = arguments.into_iter();
     match arguments.next().as_deref() {
-        None | Some("list") => list(arguments.collect()),
+        None => {
+            if io::stdin().is_terminal() && io::stdout().is_terminal() {
+                interactive(None, session_seed())
+            } else {
+                list(Vec::new())
+            }
+        }
+        Some("list") => list(arguments.collect()),
         Some("info") => {
-            let name = required_name(arguments.next())?;
+            let name = arguments
+                .next()
+                .ok_or_else(|| "info needs a game name".to_owned())?;
             if arguments.next().is_some() {
                 return Err("info accepts one game name".into());
             }
             info(&name)
         }
         Some("run") => {
-            let name = required_name(arguments.next())?;
-            launch(&name, arguments.collect())
+            let name = arguments
+                .next()
+                .ok_or_else(|| "run needs a game name".to_owned())?;
+            let seed = parse_seed(arguments.collect())?;
+            find_mode(&name)?;
+            if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+                return Err("interactive games need a terminal; run this command directly".into());
+            }
+            interactive(Some(&name), seed.unwrap_or_else(session_seed))
         }
         Some("-h" | "--help") => {
             println!("{HELP}");
@@ -121,9 +205,15 @@ pub fn run(arguments: Vec<String>) -> Result<i32, String> {
     }
 }
 
-fn required_name(name: Option<String>) -> Result<String, String> {
-    name.filter(|value| valid_name(value))
-        .ok_or_else(|| "enter a valid game name".into())
+fn parse_seed(arguments: Vec<String>) -> Result<Option<u64>, String> {
+    match arguments.as_slice() {
+        [] => Ok(None),
+        [flag, value] if flag == "--seed" => value
+            .parse()
+            .map(Some)
+            .map_err(|_| "--seed needs an unsigned integer".into()),
+        _ => Err("usage: games run NAME [--seed NUMBER]".into()),
+    }
 }
 
 fn list(arguments: Vec<String>) -> Result<i32, String> {
@@ -139,372 +229,384 @@ fn list(arguments: Vec<String>) -> Result<i32, String> {
     if plain && json {
         return Err("--plain and --json cannot be used together".into());
     }
-
-    let games = registry()?;
     if json {
-        println!("{}", render_json(&games));
+        let values = MODES
+            .iter()
+            .map(|mode| {
+                format!(
+                    "{{\"name\":{},\"title\":{},\"summary\":{},\"native\":true}}",
+                    json_string(mode.name),
+                    json_string(mode.title),
+                    json_string(mode.summary),
+                )
+            })
+            .collect::<Vec<_>>();
+        println!("[{}]", values.join(","));
     } else if use_color(plain) {
-        print_styled(&games);
+        println!("\x1b[38;2;125;207;255m+-- GAMES \x1b[38;2;86;95;137m// native arcade\x1b[0m");
+        for mode in MODES {
+            println!(
+                "\x1b[38;2;125;207;255m|\x1b[0m \x1b[38;2;158;206;106m*\x1b[0m {:10} {}",
+                mode.name, mode.summary
+            );
+        }
+        println!("\x1b[38;2;125;207;255m+--\x1b[0m \x1b[38;2;86;95;137mgames run NAME\x1b[0m");
     } else {
-        print_plain(&games);
+        for mode in MODES {
+            println!("{}\tnative\t{}", mode.name, mode.summary);
+        }
     }
     Ok(0)
 }
 
 fn info(name: &str) -> Result<i32, String> {
-    let game = find_game(name)?;
-    println!("Name\t{}", game.name);
-    println!("Command\t{}", game.command);
-    println!(
-        "Status\t{}",
-        if find_command(&game.command).is_some() {
-            "ready"
-        } else {
-            "missing"
-        }
-    );
-    println!("License\t{}", game.license);
-    println!("Source\t{}", game.source);
-    println!("Summary\t{}", game.summary);
+    let mode = find_mode(name)?;
+    println!("Name\t{}", mode.name);
+    println!("Title\t{}", mode.title);
+    println!("Implementation\tNative clean-room Rust");
+    println!("Summary\t{}", mode.summary);
     Ok(0)
 }
 
-fn launch(name: &str, arguments: Vec<String>) -> Result<i32, String> {
-    let game = find_game(name)?;
-    let executable = find_command(&game.command).ok_or_else(|| {
-        format!(
-            "{} is not installed (expected {:?}); see {}",
-            game.name, game.command, game.source
-        )
-    })?;
-    let status = Command::new(&executable)
-        .args(arguments)
-        .status()
-        .map_err(|error| format!("cannot launch {}: {error}", executable.display()))?;
-    Ok(status.code().unwrap_or(1))
-}
-
-fn find_game(name: &str) -> Result<Game, String> {
-    registry()?
-        .into_iter()
-        .find(|game| game.name == name)
+fn find_mode(name: &str) -> Result<&'static ModeSpec, String> {
+    MODES
+        .iter()
+        .find(|mode| mode.name == name)
         .ok_or_else(|| format!("unknown game {name:?}; run 'games list'"))
 }
 
-fn registry() -> Result<Vec<Game>, String> {
-    let mut games = BUILTINS
-        .iter()
-        .map(|&(name, command, summary, source, license)| Game {
-            name: name.into(),
-            command: command.into(),
-            summary: summary.into(),
-            source: source.into(),
-            license: license.into(),
-        })
-        .collect::<Vec<_>>();
-    let mut names = games
-        .iter()
-        .map(|game| game.name.clone())
-        .collect::<HashSet<_>>();
-    let mut manifest_count = 0;
-
-    for directory in manifest_directories() {
-        if !directory.exists() {
-            continue;
-        }
-        let mut paths = fs::read_dir(&directory)
-            .map_err(|error| format!("cannot read {}: {error}", directory.display()))?
-            .filter_map(Result::ok)
-            .map(|entry| entry.path())
-            .filter(|path| path.extension() == Some(OsStr::new("game")))
-            .collect::<Vec<_>>();
-        paths.sort_unstable();
-        for path in paths {
-            manifest_count += 1;
-            if manifest_count > MAX_MANIFESTS {
-                return Err(format!("more than {MAX_MANIFESTS} game manifests found"));
-            }
-            let game = read_manifest(&path)?;
-            if !names.insert(game.name.clone()) {
-                return Err(format!(
-                    "duplicate game name {:?} in {}",
-                    game.name,
-                    path.display()
-                ));
-            }
-            games.push(game);
-        }
-    }
-    games.sort_unstable_by(|left, right| left.name.cmp(&right.name));
-    Ok(games)
+fn session_seed() -> u64 {
+    let time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos() as u64;
+    time ^ u64::from(std::process::id())
 }
 
-fn manifest_directories() -> Vec<PathBuf> {
-    let mut directories: Vec<PathBuf> = env::var_os("TOOLS_GAME_PATH")
-        .map(|value| {
-            env::split_paths(&value)
-                .filter(|path| !path.as_os_str().is_empty())
-                .collect()
-        })
-        .unwrap_or_default();
-    if let Some(path) = env::var_os("XDG_DATA_HOME") {
-        directories.push(PathBuf::from(path).join("keys-tools/games"));
-    } else if let Some(home) = env::var_os("HOME") {
-        directories.push(PathBuf::from(home).join(".local/share/keys-tools/games"));
-    }
-    directories
-}
+fn interactive(initial: Option<&str>, mut seed: u64) -> Result<i32, String> {
+    let _terminal = TerminalSession::enter().map_err(|error| format!("terminal: {error}"))?;
+    let mut stdout = io::stdout();
+    let mut selected = initial
+        .and_then(|name| MODES.iter().position(|mode| mode.name == name))
+        .unwrap_or(0);
+    let mut active = initial.map(|_| (MODES[selected].factory)(seed));
+    let mut next_tick = schedule_tick(active.as_deref());
+    let color = use_color(false);
 
-fn read_manifest(path: &Path) -> Result<Game, String> {
-    let before = fs::symlink_metadata(path)
-        .map_err(|error| format!("cannot inspect {}: {error}", path.display()))?;
-    if before.file_type().is_symlink() || !before.is_file() {
-        return Err(format!("unsafe game manifest: {}", path.display()));
-    }
-    #[cfg(windows)]
-    let file = {
-        use std::os::windows::fs::OpenOptionsExt as _;
-        const FILE_FLAG_OPEN_REPARSE_POINT: u32 = 0x0020_0000;
-        fs::OpenOptions::new()
-            .read(true)
-            .custom_flags(FILE_FLAG_OPEN_REPARSE_POINT)
-            .open(path)
-    };
-    #[cfg(not(windows))]
-    let file = fs::File::open(path);
-    let file = file.map_err(|error| format!("cannot read {}: {error}", path.display()))?;
-    let opened = file
-        .metadata()
-        .map_err(|error| format!("cannot inspect {}: {error}", path.display()))?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::MetadataExt as _;
-        if before.dev() != opened.dev() || before.ino() != opened.ino() {
-            return Err(format!("game manifest changed: {}", path.display()));
-        }
-    }
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt as _;
-        const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x0000_0400;
-        if opened.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT != 0 {
-            return Err(format!("unsafe game manifest: {}", path.display()));
-        }
-    }
-    if !opened.is_file() || opened.len() > MAX_MANIFEST_BYTES {
-        return Err(format!("unsafe game manifest: {}", path.display()));
-    }
-    let mut bytes = Vec::with_capacity(opened.len() as usize + 1);
-    file.take(MAX_MANIFEST_BYTES + 1)
-        .read_to_end(&mut bytes)
-        .map_err(|error| format!("cannot read {}: {error}", path.display()))?;
-    if bytes.len() as u64 > MAX_MANIFEST_BYTES {
-        return Err(format!("unsafe game manifest: {}", path.display()));
-    }
-    let text = String::from_utf8(bytes)
-        .map_err(|_| format!("{}: manifest must be UTF-8", path.display()))?;
-    parse_manifest(&text).map_err(|error| format!("{}: {error}", path.display()))
-}
-
-fn parse_manifest(text: &str) -> Result<Game, String> {
-    if text
-        .chars()
-        .any(|character| character.is_control() && !matches!(character, '\n' | '\r'))
-    {
-        return Err("manifest contains control characters".into());
-    }
-    let mut values = std::collections::HashMap::new();
-    for (index, line) in text.lines().enumerate() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-        let (key, value) = line
-            .split_once('=')
-            .ok_or_else(|| format!("line {} must be key=value", index + 1))?;
-        let key = key.trim();
-        let value = value.trim();
-        if !matches!(key, "name" | "command" | "summary" | "source" | "license") {
-            return Err(format!("unknown key {key:?}"));
-        }
-        if value.is_empty() || value.contains(['\0', '\n', '\r']) {
-            return Err(format!("{key} must be one non-empty line"));
-        }
-        if values.insert(key, value).is_some() {
-            return Err(format!("duplicate key {key:?}"));
-        }
-    }
-    let get = |key| {
-        values
-            .get(key)
-            .copied()
-            .ok_or_else(|| format!("missing {key}"))
-    };
-    let name = get("name")?;
-    let command = get("command")?;
-    let summary = get("summary")?;
-    let source = get("source")?;
-    let license = get("license")?;
-    if !valid_name(name) {
-        return Err("name must contain lowercase letters, digits, and hyphens".into());
-    }
-    if command.chars().any(char::is_whitespace) || command.len() > 512 {
-        return Err("command must be one executable without arguments".into());
-    }
-    if summary.len() > 200 || license.len() > 64 {
-        return Err("summary or license is too long".into());
-    }
-    if !source.starts_with("https://") || source.len() > 512 {
-        return Err("source must be an https URL".into());
-    }
-    Ok(Game {
-        name: name.into(),
-        command: command.into(),
-        summary: summary.into(),
-        source: source.into(),
-        license: license.into(),
-    })
-}
-
-fn valid_name(value: &str) -> bool {
-    !value.is_empty()
-        && value.len() <= 64
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-}
-
-fn find_command(command: &str) -> Option<PathBuf> {
-    let candidate = Path::new(command);
-    if candidate.components().count() > 1 {
-        return executable(candidate).then(|| candidate.to_owned());
-    }
-    let path = env::var_os("PATH")?;
-    for directory in env::split_paths(&path).filter(|path| !path.as_os_str().is_empty()) {
-        let candidate = directory.join(command);
-        if executable(&candidate) {
-            return Some(candidate);
-        }
-        #[cfg(windows)]
-        {
-            let candidate = directory.join(format!("{command}.exe"));
-            if executable(&candidate) {
-                return Some(candidate);
-            }
-        }
-    }
-    None
-}
-
-#[cfg(unix)]
-fn executable(path: &Path) -> bool {
-    use std::os::unix::fs::PermissionsExt as _;
-    path.metadata()
-        .is_ok_and(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
-}
-
-#[cfg(windows)]
-fn executable(path: &Path) -> bool {
-    path.extension()
-        .is_some_and(|extension| extension.eq_ignore_ascii_case(OsStr::new("exe")))
-        && path.is_file()
-}
-
-#[cfg(not(any(unix, windows)))]
-fn executable(path: &Path) -> bool {
-    path.is_file()
-}
-
-fn print_plain(games: &[Game]) {
-    for game in games {
-        let status = if find_command(&game.command).is_some() {
-            "ready"
-        } else {
-            "missing"
-        };
-        println!("{}\t{status}\t{}", game.name, game.summary);
-    }
-}
-
-fn print_styled(games: &[Game]) {
-    const CYAN: &str = "\x1b[38;2;125;207;255m";
-    const GREEN: &str = "\x1b[38;2;158;206;106m";
-    const MUTED: &str = "\x1b[38;2;86;95;137m";
-    const RESET: &str = "\x1b[0m";
-    println!("{CYAN}╭─ ◈ GAMES {MUTED}// terminal arcade{RESET}");
-    for game in games {
-        let (marker, color) = if find_command(&game.command).is_some() {
-            ("●", GREEN)
-        } else {
-            ("○", MUTED)
-        };
-        println!(
-            "{CYAN}│{RESET} {color}{marker}{RESET} {:12} {}",
-            game.name, game.summary
+    loop {
+        let terminal_size = size().unwrap_or((80, 24));
+        let scene = active.as_ref().map_or_else(
+            || menu_scene(selected),
+            |game| game.scene(terminal_size.0, terminal_size.1),
         );
+        let outcome = active
+            .as_ref()
+            .map_or(&Outcome::Playing, |game| game.outcome());
+        draw(&mut stdout, &scene, outcome, terminal_size, color)
+            .map_err(|error| format!("draw: {error}"))?;
+
+        let tick_rate = active.as_ref().and_then(|game| game.tick_rate());
+        let input_ready = tick_rate.map_or(Ok(true), |rate| {
+            event::poll(
+                next_tick
+                    .saturating_duration_since(Instant::now())
+                    .min(rate),
+            )
+        });
+
+        if input_ready.map_err(|error| format!("input: {error}"))? {
+            match event::read().map_err(|error| format!("input: {error}"))? {
+                Event::Key(key)
+                    if matches!(key.kind, KeyEventKind::Press | KeyEventKind::Repeat) =>
+                {
+                    if quit_key(key, active.as_ref().is_some_and(|game| game.accepts_text())) {
+                        break;
+                    }
+                    if key.code == KeyCode::Esc {
+                        if active.is_some() {
+                            active = None;
+                        } else {
+                            break;
+                        }
+                        continue;
+                    }
+                    if active.is_some()
+                        && restart_key(key, active.as_ref().is_some_and(|game| game.accepts_text()))
+                    {
+                        active = Some((MODES[selected].factory)(seed));
+                        next_tick = schedule_tick(active.as_deref());
+                        continue;
+                    }
+                    if let Some(game) = active.as_mut() {
+                        if game.outcome() != &Outcome::Playing && key.code == KeyCode::Enter {
+                            seed = seed.wrapping_add(1);
+                            active = Some((MODES[selected].factory)(seed));
+                            next_tick = schedule_tick(active.as_deref());
+                        } else if game.outcome() == &Outcome::Playing {
+                            game.input(map_key(key));
+                        }
+                    } else {
+                        match map_key(key) {
+                            Input::Up | Input::Char('k') => {
+                                selected = selected.checked_sub(1).unwrap_or(MODES.len() - 1);
+                            }
+                            Input::Down | Input::Char('j') => {
+                                selected = (selected + 1) % MODES.len();
+                            }
+                            Input::Enter => {
+                                active = Some((MODES[selected].factory)(seed));
+                                next_tick = schedule_tick(active.as_deref());
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                Event::Resize(_, _) => {}
+                _ => {}
+            }
+        }
+
+        if let Some(game) = active.as_mut()
+            && let Some(rate) = game.tick_rate()
+            && Instant::now() >= next_tick
+        {
+            if game.outcome() == &Outcome::Playing {
+                game.tick();
+            }
+            next_tick = Instant::now() + rate;
+        }
     }
-    println!("{CYAN}╰─{RESET} {MUTED}games run NAME{RESET}");
+    Ok(0)
 }
 
-fn render_json(games: &[Game]) -> String {
-    let values = games
+fn schedule_tick(game: Option<&dyn Game>) -> Instant {
+    Instant::now() + game.and_then(|game| game.tick_rate()).unwrap_or_default()
+}
+
+fn quit_key(key: KeyEvent, accepts_text: bool) -> bool {
+    !accepts_text && matches!(key.code, KeyCode::Char('q' | 'Q'))
+        || key.modifiers.contains(KeyModifiers::CONTROL)
+            && matches!(key.code, KeyCode::Char('c' | 'C'))
+}
+
+fn restart_key(key: KeyEvent, accepts_text: bool) -> bool {
+    if accepts_text {
+        key.modifiers.contains(KeyModifiers::CONTROL)
+            && matches!(key.code, KeyCode::Char('r' | 'R'))
+    } else {
+        matches!(key.code, KeyCode::Char('r' | 'R'))
+    }
+}
+
+fn map_key(key: KeyEvent) -> Input {
+    match key.code {
+        KeyCode::Up => Input::Up,
+        KeyCode::Down => Input::Down,
+        KeyCode::Left => Input::Left,
+        KeyCode::Right => Input::Right,
+        KeyCode::Enter => Input::Enter,
+        KeyCode::Backspace => Input::Backspace,
+        KeyCode::Char(character) => Input::Char(character.to_ascii_lowercase()),
+        _ => Input::Char('\0'),
+    }
+}
+
+fn menu_scene(selected: usize) -> Scene {
+    let lines = MODES
         .iter()
-        .map(|game| {
+        .enumerate()
+        .map(|(index, mode)| {
             format!(
-                "{{\"name\":{},\"command\":{},\"summary\":{},\"source\":{},\"license\":{},\"available\":{}}}",
-                json_string(&game.name),
-                json_string(&game.command),
-                json_string(&game.summary),
-                json_string(&game.source),
-                json_string(&game.license),
-                find_command(&game.command).is_some(),
+                "{} {:10}  {}",
+                if index == selected { ">" } else { " " },
+                mode.name,
+                mode.summary
             )
         })
-        .collect::<Vec<_>>();
-    format!("[{}]", values.join(","))
+        .collect();
+    Scene {
+        title: "ARCADE",
+        status: MODES[selected].title.into(),
+        lines,
+        help: "Up/Down choose  Enter play  q quit",
+    }
+}
+
+fn draw<W: Write>(
+    stdout: &mut W,
+    scene: &Scene,
+    outcome: &Outcome,
+    (width, height): (u16, u16),
+    color_enabled: bool,
+) -> io::Result<()> {
+    queue!(
+        stdout,
+        BeginSynchronizedUpdate,
+        MoveTo(0, 0),
+        Clear(ClearType::All)
+    )?;
+    if width < 60 || height < 20 {
+        write_centered(
+            stdout,
+            height / 2,
+            width,
+            "Resize to at least 60 x 20",
+            color_enabled.then_some(Color::Yellow),
+        )?;
+        queue!(stdout, EndSynchronizedUpdate)?;
+        return stdout.flush();
+    }
+
+    write_centered(
+        stdout,
+        1,
+        width,
+        &format!("+-- GAMES // {} --+", scene.title),
+        color_enabled.then_some(Color::Cyan),
+    )?;
+    let available = usize::from(height.saturating_sub(7));
+    let start = 3 + (available.saturating_sub(scene.lines.len().min(available)) / 2) as u16;
+    for (offset, line) in scene.lines.iter().take(available).enumerate() {
+        write_centered(
+            stdout,
+            start + offset as u16,
+            width,
+            line,
+            color_enabled.then_some(Color::White),
+        )?;
+    }
+
+    let (message, status_color) = match outcome {
+        Outcome::Playing => (&scene.status, Color::Grey),
+        Outcome::Won(message) => (message, Color::Green),
+        Outcome::Lost(message) => (message, Color::Red),
+    };
+    write_centered(
+        stdout,
+        height - 3,
+        width,
+        message,
+        color_enabled.then_some(status_color),
+    )?;
+    write_centered(
+        stdout,
+        height - 2,
+        width,
+        scene.help,
+        color_enabled.then_some(Color::Grey),
+    )?;
+    queue!(stdout, EndSynchronizedUpdate)?;
+    stdout.flush()
+}
+
+fn write_centered<W: Write>(
+    stdout: &mut W,
+    row: u16,
+    width: u16,
+    value: &str,
+    color: Option<Color>,
+) -> io::Result<()> {
+    let value = value.chars().take(width as usize).collect::<String>();
+    let column = width.saturating_sub(value.chars().count() as u16) / 2;
+    queue!(stdout, MoveTo(column, row))?;
+    if let Some(color) = color {
+        queue!(stdout, SetForegroundColor(color))?;
+    }
+    queue!(stdout, Print(value))?;
+    if color.is_some() {
+        queue!(stdout, ResetColor)?;
+    }
+    Ok(())
+}
+
+struct TerminalSession;
+
+impl TerminalSession {
+    fn enter() -> io::Result<Self> {
+        enable_raw_mode()?;
+        if let Err(error) = execute!(io::stdout(), EnterAlternateScreen, Hide, DisableLineWrap) {
+            restore_terminal();
+            return Err(error);
+        }
+        Ok(Self)
+    }
+}
+
+impl Drop for TerminalSession {
+    fn drop(&mut self) {
+        restore_terminal();
+    }
+}
+
+fn restore_terminal() {
+    let _ = execute!(
+        io::stdout(),
+        EndSynchronizedUpdate,
+        ResetColor,
+        Show,
+        EnableLineWrap,
+        LeaveAlternateScreen
+    );
+    let _ = disable_raw_mode();
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const MANIFEST: &str = "name=maze\ncommand=maze\nsummary=Small maze game\nsource=https://example.com/maze\nlicense=MIT\n";
-
     #[test]
-    fn parses_strict_manifest() {
-        let game = parse_manifest(MANIFEST).expect("valid manifest");
-        assert_eq!(game.name, "maze");
-        assert_eq!(game.command, "maze");
-        assert!(parse_manifest(&format!("{MANIFEST}unknown=x\n")).is_err());
-        assert!(parse_manifest(&MANIFEST.replace("command=maze", "command=sh -c bad")).is_err());
-        assert!(parse_manifest(&MANIFEST.replace("name=maze", "name=../maze")).is_err());
-        assert!(parse_manifest(&MANIFEST.replace("Small maze", "Small\x1b[2Jmaze")).is_err());
+    fn rng_and_mode_registry_are_deterministic() {
+        let mut left = Rng::new(7);
+        let mut right = Rng::new(7);
+        assert_eq!(left.next(), right.next());
+        assert_eq!(MODES.len(), 11);
+        for mode in MODES {
+            let game = (mode.factory)(1);
+            let replay = (mode.factory)(1);
+            let scene = game.scene(80, 24);
+            let replay_scene = replay.scene(80, 24);
+            assert_eq!(scene.title, mode.title);
+            assert!(!scene.lines.is_empty());
+            assert_eq!(scene.status, replay_scene.status);
+            assert_eq!(scene.lines, replay_scene.lines);
+            assert_eq!(game.outcome(), &Outcome::Playing);
+        }
     }
 
     #[test]
-    fn rejects_oversized_manifest() {
-        let path = env::temp_dir().join(format!("keys-tools-large-{}.game", std::process::id()));
-        fs::write(&path, vec![b'x'; MAX_MANIFEST_BYTES as usize + 1]).expect("write manifest");
-        let result = read_manifest(&path);
-        let _ = fs::remove_file(path);
-        assert!(result.is_err());
-    }
+    fn renderer_handles_plain_and_small_terminals() {
+        let scene = menu_scene(0);
+        let mut output = Vec::new();
+        draw(&mut output, &scene, &Outcome::Playing, (80, 24), false).expect("draw menu");
+        let output = String::from_utf8(output).expect("ANSI is UTF-8");
+        assert!(output.contains("GAMES // ARCADE"));
+        assert!(!output.contains("\x1b[38;"));
 
-    #[cfg(windows)]
-    #[test]
-    fn rejects_batch_launchers() {
-        let path = env::temp_dir().join(format!("keys-tools-{}.cmd", std::process::id()));
-        fs::write(&path, "@echo off\n").expect("write batch file");
-        assert!(!executable(&path));
-        let _ = fs::remove_file(path);
+        let mut small = Vec::new();
+        draw(&mut small, &scene, &Outcome::Playing, (40, 10), false).expect("draw resize state");
+        assert!(String::from_utf8_lossy(&small).contains("Resize to at least 60 x 20"));
     }
 
     #[test]
-    fn json_exposes_license_and_availability() {
-        let game = parse_manifest(MANIFEST).expect("valid manifest");
-        let json = render_json(&[game]);
-        assert!(json.contains("\"name\":\"maze\""));
-        assert!(json.contains("\"license\":\"MIT\""));
-        assert!(json.contains("\"available\":"));
+    fn parses_seed_and_rejects_unknown_mode() {
+        assert_eq!(parse_seed(vec!["--seed".into(), "42".into()]), Ok(Some(42)));
+        assert!(parse_seed(vec!["--seed".into(), "no".into()]).is_err());
+        assert!(find_mode("missing").is_err());
+        assert!(restart_key(
+            KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE),
+            false
+        ));
+        assert!(!restart_key(
+            KeyEvent::new(KeyCode::Char('r'), KeyModifiers::NONE),
+            true
+        ));
+        assert!(restart_key(
+            KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
+            true
+        ));
+        assert!(!quit_key(
+            KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE),
+            true
+        ));
     }
 }

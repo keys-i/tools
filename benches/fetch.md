@@ -17,6 +17,8 @@ shell, and terminal categories. They are not identical: `fetch` additionally
 prints architecture, CPU topology, and physical/logical core counts. For this
 bounded overview, `fetch` used 70.5% less mean launch time than Fastfetch and
 84.1% less than Macchina. Its binary was 79.2% and 80.0% smaller, respectively.
+The current unwind-safe build is 336,224 bytes, 192 bytes larger than the
+measured build; its collection path is unchanged.
 
 The requested combined workflow was also measured through the same shell:
 

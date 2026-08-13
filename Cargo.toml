@@ -16,9 +16,11 @@ path = "src/bin/fetch.rs"
 name = "games"
 path = "src/bin/games.rs"
 
+[dependencies]
+crossterm = { version = "=0.29.0", default-features = false, features = ["events", "windows"] }
+
 [profile.release]
 codegen-units = 1
 lto = true
 opt-level = "z"
-panic = "abort"
 strip = true

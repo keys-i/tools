@@ -51,12 +51,13 @@ or assets are copied into Keys Tools.
 
 - `fetch` compares only with cpufetch, macchina, and fastfetch. They are the
   three requested tools with overlapping CPU/system-information output.
-- `games` follows tuihub's hub shape but launches installed programs rather
-  than copying game code. This keeps GPL/AGPL projects separate and preserves
-  every upstream install, data, and update contract.
-- Ratatui is useful for persistent interactive screens, but these two commands
-  need one render and safe process launch. ANSI plus the Rust standard library
-  removes a dependency and a second event loop.
+- `games` is a clean-room arcade informed only by observable genres and
+  high-level behavior. It uses an original implementation, maps, text, words,
+  and ASCII assets; no upstream source, data, branding, save format, or executable is
+  copied, linked, or launched.
+- Crossterm is the only runtime dependency and owns cross-platform raw input,
+  resize events, alternate-screen entry, and terminal restoration. Ratatui is
+  excluded because these fixed layouts do not need a widget or layout engine.
 - PyPI distribution uses [maturin binary bindings](https://www.maturin.rs/bindings.html),
   which put native binaries on the environment `PATH`. PyO3 is excluded because
   the commands expose no Python API; native wheels are required per

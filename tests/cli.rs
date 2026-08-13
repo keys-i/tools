@@ -8,11 +8,6 @@ fn command(binary: &str) -> Command {
     };
     let mut command = Command::new(path);
     command.env("NO_COLOR", "1");
-    command.env_remove("TOOLS_GAME_PATH");
-    command.env(
-        "XDG_DATA_HOME",
-        std::env::temp_dir().join("keys-tools-test-empty"),
-    );
     command
 }
 
@@ -33,7 +28,7 @@ fn fetch_supports_plain_json_and_invalid_input() {
 }
 
 #[test]
-fn games_lists_json_and_refuses_unknown_games() {
+fn games_lists_native_modes_and_rejects_invalid_input() {
     let list = command("games")
         .args(["list", "--json"])
         .output()
@@ -41,7 +36,10 @@ fn games_lists_json_and_refuses_unknown_games() {
     assert!(list.status.success());
     let output = String::from_utf8_lossy(&list.stdout);
     assert!(output.starts_with('['));
-    assert!(output.contains("\"name\":\"2048\""));
+    assert!(output.contains("\"name\":\"merge\""));
+    assert!(output.contains("\"name\":\"serpent\""));
+    assert_eq!(output.matches("\"native\":true").count(), 11);
+    assert!(!output.contains("\"command\""));
 
     let missing = command("games")
         .args(["run", "not-a-game"])
@@ -50,42 +48,29 @@ fn games_lists_json_and_refuses_unknown_games() {
     assert_eq!(missing.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&missing.stderr).contains("unknown game"));
 
-    let unavailable = command("games")
-        .env("PATH", "")
-        .args(["run", "2048"])
+    let invalid_seed = command("games")
+        .args(["run", "merge", "--seed", "no"])
         .output()
-        .expect("report unavailable game");
-    assert_eq!(unavailable.status.code(), Some(2));
-    assert!(String::from_utf8_lossy(&unavailable.stderr).contains("github.com/ps06756/tui-2048"));
+        .expect("reject invalid seed");
+    assert_eq!(invalid_seed.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&invalid_seed.stderr).contains("--seed"));
 }
 
 #[test]
-fn games_launches_a_manifest_command_without_a_shell() {
-    let directory = std::env::temp_dir().join(format!(
-        "keys-tools-game-pack-{}-{:?}",
-        std::process::id(),
-        std::thread::current().id()
-    ));
-    std::fs::create_dir_all(&directory).expect("create pack");
-    std::fs::write(
-        directory.join("probe.game"),
-        format!(
-            "name=probe\ncommand={}\nsummary=Test command\nsource=https://example.com/probe\nlicense=MIT\n",
-            env!("CARGO_BIN_EXE_fetch")
-        ),
-    )
-    .expect("write manifest");
-
-    let output = command("games")
-        .env("TOOLS_GAME_PATH", &directory)
-        .args(["run", "probe", "--version"])
+fn games_describes_native_modes_and_requires_a_terminal_to_play() {
+    let info = command("games")
+        .args(["info", "merge"])
         .output()
-        .expect("run manifest command");
-    let _ = std::fs::remove_dir_all(&directory);
+        .expect("show mode info");
+    assert!(info.status.success());
+    let text = String::from_utf8_lossy(&info.stdout);
+    assert!(text.contains("Implementation\tNative clean-room Rust"));
+    assert!(text.contains("Title\tNUMBER MERGE"));
 
-    assert!(output.status.success());
-    assert_eq!(
-        String::from_utf8_lossy(&output.stdout).trim(),
-        "fetch 0.1.0"
-    );
+    let non_tty = command("games")
+        .args(["run", "merge", "--seed", "1"])
+        .output()
+        .expect("reject non-terminal play");
+    assert_eq!(non_tty.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&non_tty.stderr).contains("need a terminal"));
 }

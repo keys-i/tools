@@ -3,10 +3,11 @@
 Small native terminal tools with one job each:
 
 - `fetch` shows a fast system and CPU overview with styled, plain, or JSON output.
-- `games` lists and launches terminal games already installed on the machine.
+- `games` is an original native terminal arcade with eleven complete game modes.
 
-The binaries share no third-party runtime dependencies and never download or
-install software.
+The binaries never download or install software. `games` uses Crossterm for
+raw keyboard input and terminal restoration; no upstream game code, assets, or
+runtime is bundled.
 
 ## Install
 
@@ -28,7 +29,7 @@ Rust 1.97.1 is pinned for builds.
 ```sh
 cargo build --release --locked
 ./target/release/fetch
-./target/release/games list
+./target/release/games
 ```
 
 Useful non-interactive forms:
@@ -37,30 +38,21 @@ Useful non-interactive forms:
 fetch --plain
 fetch --json
 games list --json
-games info 2048
-games run 2048
+games info merge
+games run merge --seed 1
 ```
 
-`NO_COLOR=1` disables decoration. `games run` executes the resolved program
-directly, never through a shell.
+`NO_COLOR=1` disables decoration. Interactive play needs a real terminal and
+restores raw mode, cursor state, wrapping, and the main screen when it exits.
 
-## Game packs
+## Native arcade
 
-`games` reads optional `*.game` files from directories in `TOOLS_GAME_PATH`
-and from the user data directory (`$XDG_DATA_HOME/keys-tools/games`, or
-`~/.local/share/keys-tools/games`). A manifest is five bounded, single-line
-fields:
-
-```ini
-name=maze
-command=maze
-summary=Small terminal maze
-source=https://example.com/maze
-license=MIT
-```
-
-Names cannot shadow bundled entries. Commands contain one executable and no
-shell syntax; arguments are supplied explicitly to `games run`.
+`games` contains eleven clean-room modes: `delve`, `orbit`, `serpent`,
+`merge`, `vector`, `cards`, `seedling`, `sprint`, `keybed`, `glyphs`, and
+`scout`. They use an original implementation, maps, words, prose, and ASCII art
+informed only by the high-level behavior of the research projects. Sessions
+are finite and seeded; v1 has no network, audio, persistence, plugins, external
+executables, or copied assets.
 
 ## Scope
 
@@ -68,7 +60,8 @@ shell syntax; arguments are supplied explicitly to `games run`.
 environment-backed view on Windows. It is intentionally not a configurable
 replacement for every Fastfetch module. See [research](docs/research.md) and
 [fetch benchmarks](benches/fetch.md) for the measured comparison and limits.
-The [games benchmark](benches/games.md) measures only launcher-owned work.
+The [games benchmark](benches/games.md) measures the native arcade's owned
+non-interactive path and binary size.
 
 ## Project
 
