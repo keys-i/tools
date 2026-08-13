@@ -53,20 +53,7 @@ jobs:
 
       - name: Smoke-test wheel in a clean environment
         shell: bash
-        run: |
-          python -m venv .wheel-test
-          if [[ "$RUNNER_OS" == Windows ]]; then
-            python_bin=.wheel-test/Scripts/python.exe
-            bin_dir=.wheel-test/Scripts
-            suffix=.exe
-          else
-            python_bin=.wheel-test/bin/python
-            bin_dir=.wheel-test/bin
-            suffix=
-          fi
-          "$python_bin" -m pip install --disable-pip-version-check --no-deps dist/*.whl
-          "$bin_dir/fetch$suffix" --json
-          "$bin_dir/games$suffix" list --json
+        run: bash scripts/smoke-wheel.sh dist/*.whl
 
   style:
     name: Rust / style

@@ -8,6 +8,19 @@ Small native terminal tools with one job each:
 The binaries share no third-party runtime dependencies and never download or
 install software.
 
+## Install
+
+After the first release is published, install both commands from its native
+PyPI wheel:
+
+```sh
+uv tool install keys-tools
+```
+
+The release workflow builds wheels for Linux x86_64, macOS ARM64 and x86_64,
+and Windows x86_64. It attaches the same verified files and checksums to the
+corresponding GitHub release.
+
 ## Build
 
 Rust 1.97.1 is pinned for builds.
@@ -54,6 +67,13 @@ shell syntax; arguments are supplied explicitly to `games run`.
 `fetch` has detailed native collection on macOS and Linux and a smaller
 environment-backed view on Windows. It is intentionally not a configurable
 replacement for every Fastfetch module. See [research](docs/research.md) and
-[benchmarks](docs/benchmarks.md) for the measured comparison and limits.
+[fetch benchmarks](benches/fetch.md) for the measured comparison and limits.
+The [games benchmark](benches/games.md) measures only launcher-owned work.
 
-The PyPI/maturin metadata is preparation only. No package has been published.
+## Project
+
+- [Changelog](docs/CHANGELOG.md)
+- [Contributing](docs/CONTRIBUTING.md)
+- [Security policy](docs/SECURITY.md)
+- [Code of Conduct](docs/CODE_OF_CONDUCT.md)
+- [MIT license](LICENSE)

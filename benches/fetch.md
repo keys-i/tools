@@ -3,7 +3,7 @@
 Measured 2026-08-13 on an Apple M3 Pro (12 cores, 36 GiB), macOS 26.5.2
 arm64, rustc 1.97.1, AppleClang 21, and Hyperfine 1.20.0. Each result uses 50
 warmups and 500 measured launches. Release binaries were built from the pinned
-revisions in [research](research.md), on the same host, immediately before the
+revisions in [research](../docs/research.md), on the same host, immediately before the
 run.
 
 | Command | Mean ± standard deviation | Median | Binary size |
@@ -44,13 +44,13 @@ cmake -S research/fastfetch -B research/fastfetch/build -DCMAKE_BUILD_TYPE=Relea
 cmake --build research/fastfetch/build --config Release
 cargo build --release --manifest-path research/macchina/Cargo.toml
 make -C research/cpufetch
-tests/benchmark.sh
+benches/compare-fetch.sh
 ```
 
 Set `FETCH`, `FASTFETCH`, `MACCHINA`, and `CPUFETCH` when binaries live outside
 their documented defaults. Results are written below ignored `target/benchmarks`.
 The system and combined tables used the default `RUNS=500`; the separately
-reported CPU-only comparison used `RUNS=1000 tests/benchmark.sh` and its
+reported CPU-only comparison used `RUNS=1000 benches/compare-fetch.sh` and its
 `target/benchmarks/cpu.json` result. Build flags and available system libraries
 can change competitor features and timings, so compare results only from the
 same host and build session.
