@@ -43,6 +43,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
+      - name: Attach pull request commit
+        shell: bash
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git switch --create release-workflow
+          git branch --set-upstream-to="origin/$BASE_BRANCH"
+
       - name: Dry-run semantic release
         uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
         with:
@@ -75,6 +83,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Attach merged commit
+        shell: bash
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        run: |
+          git switch --create release-workflow
+          git branch --set-upstream-to="origin/$BASE_BRANCH"
 
       - name: Authorize merged release pull request
         id: authorize
