@@ -3,15 +3,16 @@
 Small native terminal tools with one job each:
 
 - `fetch` shows a fast system and CPU overview with styled, plain, or JSON output.
-- `games` is an original native terminal arcade with eleven complete game modes.
+- `games` is a native clean-room terminal arcade with eleven complete game modes.
+- `lazybox` is one direct dashboard for Docker containers, Apple containers, and Slurm jobs.
 
-The binaries never download or install software. `games` uses Crossterm for
-raw keyboard input and terminal restoration; no upstream game code, assets, or
-runtime is bundled.
+The binaries never download or install software. `games` and `lazybox` use
+Crossterm for raw keyboard input and terminal restoration; no upstream TUI,
+game code, or assets are bundled.
 
 ## Install
 
-After the first release is published, install both commands from its native
+After the first release is published, install all commands from its native
 PyPI wheel:
 
 ```sh
@@ -30,6 +31,7 @@ Rust 1.97.1 is pinned for builds.
 cargo build --release --locked
 ./target/release/fetch
 ./target/release/games
+./target/release/lazybox
 ```
 
 Useful non-interactive forms:
@@ -40,6 +42,8 @@ fetch --json
 games list --json
 games info merge
 games run merge --seed 1
+lazybox snapshot --backend auto --json
+lazybox open --backend docker
 ```
 
 `NO_COLOR=1` disables decoration. Interactive play needs a real terminal and
@@ -54,6 +58,16 @@ informed only by the high-level behavior of the research projects. Sessions
 are finite and seeded; v1 has no network, audio, persistence, plugins, external
 executables, or copied assets.
 
+## Unified operations
+
+`lazybox` auto-detects a responding Docker, Apple Container, or Slurm backend,
+then renders its own consistent dashboard. It calls only the installed native
+CLI for inventory, details, bounded container logs, and confirmed start, stop,
+restart, or cancellation actions. It never invokes Lazydocker, Lazyslurm, or
+Lazycontainer. Plain and JSON snapshots make the same inventory usable in
+scripts without entering raw terminal mode. Backend calls stop after 30 seconds
+and capture at most 8 MiB of combined output.
+
 ## Scope
 
 `fetch` has detailed native collection on macOS and Linux and a smaller
@@ -61,7 +75,9 @@ environment-backed view on Windows. It is intentionally not a configurable
 replacement for every Fastfetch module. See [research](docs/research.md) and
 [fetch benchmarks](benches/fetch.md) for the measured comparison and limits.
 The [games benchmark](benches/games.md) measures the native arcade's owned
-non-interactive path and binary size.
+non-interactive path and binary size. The [lazybox benchmark](benches/lazybox.md)
+measures native CLI startup and package size without pretending backend latency
+belongs to the dashboard.
 
 ## Project
 

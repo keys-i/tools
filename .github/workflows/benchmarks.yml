@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
   tools:
-    name: fetch + games
+    name: fetch + games + lazybox
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
