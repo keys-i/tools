@@ -2,6 +2,7 @@ pub mod fetch;
 pub mod games;
 pub mod lazybox;
 pub mod science;
+pub mod screensaver;
 mod terminal;
 
 use std::fmt::Write as _;

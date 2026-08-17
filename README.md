@@ -6,6 +6,7 @@ Small native terminal tools with one job each:
 - `games` is a native clean-room terminal arcade with eleven complete game modes.
 - `lazybox` is one direct dashboard for Docker containers, Apple containers, and Slurm jobs.
 - `science` explores planetary orbits, VCD waveforms, and PLY or `.splat` point clouds offline.
+- `screensaver` animates six owned terminal scenes, including local Git history and GIF files.
 
 The binaries never download or install software. `games` and `lazybox` use
 Crossterm for raw keyboard input and terminal restoration; no upstream TUI,
@@ -34,6 +35,7 @@ cargo build --release --locked
 ./target/release/games
 ./target/release/lazybox
 ./target/release/science
+./target/release/screensaver
 ```
 
 Useful non-interactive forms:
@@ -49,6 +51,9 @@ lazybox open --backend docker
 science snapshot orbit --json
 science open wave capture.vcd
 science open cloud scan.ply
+screensaver snapshot rain --seed 1 --json
+screensaver open git .
+screensaver open gif animation.gif
 ```
 
 `NO_COLOR=1` disables decoration. Interactive play needs a real terminal and
@@ -85,6 +90,22 @@ large clouds use a deterministic sample of at most 60,000 points for drawing
 without weakening full-file bounds and centroid statistics. No source asset,
 network service, serial driver, subprocess, or upstream executable is bundled.
 
+## Native screensaver
+
+`screensaver` owns four generated scenes—digital rain, wrapping pipes, a frog
+pond, and offline weather—plus a bounded Git-history view and local GIF87a/89a
+playback. Generated snapshots are deterministic by seed. Git mode reads one
+64-commit batch through the installed `git` command with the same timeout and
+output limits as `lazybox`; GIF mode contains a bounded block parser and
+fixed-table LZW decoder capped at 64 MiB input, 512 frames, and 16 million
+retained terminal-render pixels, with at most 128 million decoded source
+pixels. It does not use Pillow, ffmpeg, a browser, a weather API, a
+media cache, or copied upstream art.
+
+Interactive output updates only changed terminal rows, supports resize and
+`NO_COLOR`, and can be slowed to one frame per second with `--fps 1`. Plain and
+JSON snapshots provide a non-animated alternative.
+
 ## Scope
 
 `fetch` has detailed native collection on macOS and Linux and a smaller
@@ -97,6 +118,8 @@ measures native CLI startup and package size without pretending backend latency
 belongs to the dashboard.
 The [science benchmark](benches/science.md) measures an offline orbit snapshot
 and binary size; file parsing latency remains input-dependent.
+The [screensaver benchmark](benches/screensaver.md) measures one deterministic
+generated snapshot and binary size; Git and GIF latency remains input-dependent.
 
 ## Project
 

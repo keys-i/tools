@@ -24,6 +24,10 @@ path = "src/bin/lazybox.rs"
 name = "science"
 path = "src/bin/science.rs"
 
+[[bin]]
+name = "screensaver"
+path = "src/bin/screensaver.rs"
+
 [dependencies]
 crossterm = { version = "=0.29.0", default-features = false, features = ["events", "windows"] }
 

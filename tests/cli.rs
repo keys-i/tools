@@ -6,6 +6,7 @@ fn command(binary: &str) -> Command {
         "games" => env!("CARGO_BIN_EXE_games"),
         "lazybox" => env!("CARGO_BIN_EXE_lazybox"),
         "science" => env!("CARGO_BIN_EXE_science"),
+        "screensaver" => env!("CARGO_BIN_EXE_screensaver"),
         _ => unreachable!(),
     };
     let mut command = Command::new(path);
@@ -130,6 +131,32 @@ fn science_snapshots_orbits_and_validates_inputs() {
         .args(["open", "orbit"])
         .output()
         .expect("reject non-terminal view");
+    assert_eq!(interactive.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&interactive.stderr).contains("need a terminal"));
+}
+
+#[test]
+fn screensaver_snapshots_owned_scenes_and_validates_inputs() {
+    let rain = command("screensaver")
+        .args(["snapshot", "rain", "--seed", "1", "--frame", "24", "--json"])
+        .output()
+        .expect("snapshot rain");
+    assert!(rain.status.success());
+    let output = String::from_utf8_lossy(&rain.stdout);
+    assert!(output.starts_with("{\"mode\":\"rain\""));
+    assert!(output.contains("SCREENSAVER // RAIN"));
+
+    let missing = command("screensaver")
+        .args(["snapshot", "gif"])
+        .output()
+        .expect("reject missing GIF");
+    assert_eq!(missing.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("local GIF file"));
+
+    let interactive = command("screensaver")
+        .args(["open", "pond"])
+        .output()
+        .expect("reject non-terminal scene");
     assert_eq!(interactive.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&interactive.stderr).contains("need a terminal"));
 }
