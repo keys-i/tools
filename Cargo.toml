@@ -20,6 +20,10 @@ path = "src/bin/games.rs"
 name = "lazybox"
 path = "src/bin/lazybox.rs"
 
+[[bin]]
+name = "science"
+path = "src/bin/science.rs"
+
 [dependencies]
 crossterm = { version = "=0.29.0", default-features = false, features = ["events", "windows"] }
 

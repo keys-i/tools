@@ -5,6 +5,7 @@ Small native terminal tools with one job each:
 - `fetch` shows a fast system and CPU overview with styled, plain, or JSON output.
 - `games` is a native clean-room terminal arcade with eleven complete game modes.
 - `lazybox` is one direct dashboard for Docker containers, Apple containers, and Slurm jobs.
+- `science` explores planetary orbits, VCD waveforms, and PLY or `.splat` point clouds offline.
 
 The binaries never download or install software. `games` and `lazybox` use
 Crossterm for raw keyboard input and terminal restoration; no upstream TUI,
@@ -32,6 +33,7 @@ cargo build --release --locked
 ./target/release/fetch
 ./target/release/games
 ./target/release/lazybox
+./target/release/science
 ```
 
 Useful non-interactive forms:
@@ -44,6 +46,9 @@ games info merge
 games run merge --seed 1
 lazybox snapshot --backend auto --json
 lazybox open --backend docker
+science snapshot orbit --json
+science open wave capture.vcd
+science open cloud scan.ply
 ```
 
 `NO_COLOR=1` disables decoration. Interactive play needs a real terminal and
@@ -68,6 +73,18 @@ Lazycontainer. Plain and JSON snapshots make the same inventory usable in
 scripts without entering raw terminal mode. Backend calls stop after 30 seconds
 and capture at most 8 MiB of combined output.
 
+## Offline science
+
+`science` calculates approximate heliocentric planet positions locally from the
+[JPL Solar System Dynamics 1800-2050 model](https://ssd.jpl.nasa.gov/planets/approx_pos.html).
+Its event-driven views also parse bounded VCD logic traces and stream ASCII or
+little-endian binary PLY and 32-byte `.splat` point records in one pass.
+Consecutive repeated logic states are discarded during parsing while distinct
+multi-bit values are preserved, and
+large clouds use a deterministic sample of at most 60,000 points for drawing
+without weakening full-file bounds and centroid statistics. No source asset,
+network service, serial driver, subprocess, or upstream executable is bundled.
+
 ## Scope
 
 `fetch` has detailed native collection on macOS and Linux and a smaller
@@ -78,6 +95,8 @@ The [games benchmark](benches/games.md) measures the native arcade's owned
 non-interactive path and binary size. The [lazybox benchmark](benches/lazybox.md)
 measures native CLI startup and package size without pretending backend latency
 belongs to the dashboard.
+The [science benchmark](benches/science.md) measures an offline orbit snapshot
+and binary size; file parsing latency remains input-dependent.
 
 ## Project
 

@@ -37,3 +37,4 @@ fi
 "$bin_dir/fetch$suffix" --json
 "$bin_dir/games$suffix" list --json
 "$bin_dir/lazybox$suffix" --version
+"$bin_dir/science$suffix" snapshot orbit --json
