@@ -43,6 +43,16 @@ fn fetch_supports_plain_json_and_invalid_input() {
     assert!(json.status.success());
     assert!(String::from_utf8_lossy(&json.stdout).starts_with("{\"host\":"));
 
+    let hostile = command("fetch")
+        .arg("--plain")
+        .env("TERM_PROGRAM", "term\x1b]0;owned\x07")
+        .output()
+        .expect("sanitize terminal name");
+    assert!(hostile.status.success());
+    let output = String::from_utf8_lossy(&hostile.stdout);
+    assert!(output.contains("term\\u{1b}]0;owned\\u{7}"));
+    assert!(!output.contains('\x1b') && !output.contains('\x07'));
+
     let invalid = command("fetch").arg("--wat").output().expect("run fetch");
     assert_eq!(invalid.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&invalid.stderr).contains("unknown option"));
@@ -170,6 +180,15 @@ fn screensaver_snapshots_owned_scenes_and_validates_inputs() {
         .expect("reject missing GIF");
     assert_eq!(missing.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&missing.stderr).contains("local GIF file"));
+
+    let hostile = command("screensaver")
+        .args(["snapshot", "gif", "missing\x1b]0;owned\x07.gif"])
+        .output()
+        .expect("sanitize GIF path");
+    assert_eq!(hostile.status.code(), Some(2));
+    let error = String::from_utf8_lossy(&hostile.stderr);
+    assert!(error.contains("missing\\u{1b}]0;owned\\u{7}.gif"));
+    assert!(!error.contains('\x1b') && !error.contains('\x07'));
 
     let interactive = command("screensaver")
         .args(["open", "pond"])

@@ -10,7 +10,7 @@ use crossterm::style::Print;
 use crossterm::terminal::{BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate, size};
 
 use crate::terminal::Session;
-use crate::{VERSION, json_string};
+use crate::{VERSION, human_text, json_string};
 
 const HELP: &str = "Fast native local terminal apps\n\nUsage:\n  apps [open|snapshot] read FILE [--find TEXT] [--limit N]\n  apps [open|snapshot] table FILE [--delimiter comma|tab] [--limit N]\n  apps [open|snapshot] slides FILE [--page N]\n  apps [open|snapshot] paint [FILE] [--width N --height N] [--output FILE]\n  apps [open|snapshot] timer --seconds N [--elapsed N] [--label TEXT]\n\nOptions:\n  --find TEXT          Find text in read mode\n  --delimiter NAME     comma or tab; inferred from .tsv otherwise\n  --limit N            Snapshot rows or lines (1..1000, default 20)\n  --page N             Slide number, starting at 1\n  --width N            New paint canvas width (1..240, default 40)\n  --height N           New paint canvas height (1..80, default 16)\n  --output FILE        New paint file; existing files are never overwritten\n  --seconds N          Timer duration (1..86400)\n  --elapsed N          Deterministic snapshot progress in seconds\n  --label TEXT         Timer label\n  --plain              Stable snapshot text\n  --json               Machine-readable snapshot\n  -h, --help           Show this help\n  -V, --version        Show the version\n\nControls: q quits; arrows navigate; PageUp/PageDown jump; Home/End move to edges. Slides use Left/Right. Paint uses a printable key or Space to draw, Backspace to erase, and s to save. Timer uses Space to pause and r to reset.";
 
@@ -336,18 +336,6 @@ fn write_stdout(value: &str) -> Result<i32, String> {
     let mut stdout = io::stdout().lock();
     writeln!(stdout, "{value}").map_err(|error| format!("cannot write output: {error}"))?;
     Ok(0)
-}
-
-fn human_text(value: &str) -> String {
-    let mut output = String::with_capacity(value.len());
-    for character in value.chars() {
-        if character.is_control() {
-            output.extend(character.escape_default());
-        } else {
-            output.push(character);
-        }
-    }
-    output
 }
 
 fn human_path(path: &Path) -> String {

@@ -12,7 +12,7 @@ use crossterm::terminal::{BeginSynchronizedUpdate, Clear, ClearType, EndSynchron
 use crate::games::Rng;
 use crate::lazybox::{clean, command_output};
 use crate::terminal::Session;
-use crate::{VERSION, json_string};
+use crate::{VERSION, human_text, json_string};
 
 const HELP: &str = "Native terminal scenes and local media playback\n\nUsage:\n  screensaver\n  screensaver open [mix|rain|pipes|pond|weather|git|gif] [INPUT] [OPTIONS]\n  screensaver snapshot [mix|rain|pipes|pond|weather|git|gif] [INPUT] [OPTIONS]\n\nInputs:\n  git [PATH]    Read at most 64 commits from a local Git repository\n  gif FILE      Decode a bounded local GIF87a or GIF89a file\n\nOptions:\n  --seed NUMBER       Reproduce generated scenes\n  --frame NUMBER      Snapshot a later animation frame (0..10000)\n  --condition NAME    clear, rain, snow, storm, or fog\n  --night             Render the weather scene at night\n  --fps NUMBER        Interactive animation rate (1..60)\n  --plain             Stable snapshot text without decoration\n  --json              Machine-readable snapshot and rendered lines\n  -h, --help          Show this help\n  -V, --version       Show the version\n\nControls: q or Esc quits; Space pauses; r resets; n changes the mixed scene; Left/Right moves through Git or GIF frames; Up/Down changes speed.";
 
@@ -24,6 +24,10 @@ const MAX_GIF_DECODED_PIXELS: usize = 128 * 1024 * 1024;
 const MAX_GIF_FRAMES: usize = 512;
 const MAX_GIF_RENDER_WIDTH: usize = 240;
 const MAX_GIF_RENDER_HEIGHT: usize = 160;
+
+fn path_text(path: &Path) -> String {
+    human_text(&path.to_string_lossy())
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum Action {
@@ -1079,11 +1083,11 @@ struct GitScene {
 impl GitScene {
     fn load(path: &Path) -> Result<Self, String> {
         if !path.exists() {
-            return Err(format!("Git path does not exist: {}", path.display()));
+            return Err(format!("Git path does not exist: {}", path_text(path)));
         }
         let path = path
             .canonicalize()
-            .map_err(|error| format!("cannot resolve Git path {}: {error}", path.display()))?;
+            .map_err(|error| format!("cannot resolve Git path {}: {error}", path_text(path)))?;
         let path_arg = path
             .to_str()
             .ok_or("Git path must be valid UTF-8")?
@@ -1118,10 +1122,10 @@ impl GitScene {
             })
             .collect::<Vec<_>>();
         if commits.is_empty() {
-            return Err(format!("no commits found in {}", path.display()));
+            return Err(format!("no commits found in {}", path_text(&path)));
         }
         Ok(Self {
-            path: clean(&path.display().to_string()),
+            path: path_text(&path),
             commits,
             index: 0,
             typed: 0,
@@ -1252,12 +1256,12 @@ struct GifScene {
 impl GifScene {
     fn load(path: &Path) -> Result<Self, String> {
         let file = fs::File::open(path)
-            .map_err(|error| format!("cannot open GIF {}: {error}", path.display()))?;
+            .map_err(|error| format!("cannot open GIF {}: {error}", path_text(path)))?;
         let metadata = file
             .metadata()
-            .map_err(|error| format!("cannot inspect GIF {}: {error}", path.display()))?;
+            .map_err(|error| format!("cannot inspect GIF {}: {error}", path_text(path)))?;
         if !metadata.is_file() {
-            return Err(format!("GIF input is not a file: {}", path.display()));
+            return Err(format!("GIF input is not a file: {}", path_text(path)));
         }
         if metadata.len() > MAX_GIF_BYTES {
             return Err(format!(
@@ -1268,7 +1272,7 @@ impl GifScene {
         let mut bytes = Vec::with_capacity(metadata.len() as usize + 1);
         file.take(MAX_GIF_BYTES + 1)
             .read_to_end(&mut bytes)
-            .map_err(|error| format!("cannot read GIF {}: {error}", path.display()))?;
+            .map_err(|error| format!("cannot read GIF {}: {error}", path_text(path)))?;
         if bytes.len() as u64 > MAX_GIF_BYTES {
             return Err(format!(
                 "GIF input exceeds {} MiB",
