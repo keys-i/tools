@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
   tools:
-    name: fetch + games + lazybox + science + screensaver
+    name: fetch + games + lazybox + science + screensaver + apps
     runs-on: ubuntu-latest
     timeout-minutes: 15
 

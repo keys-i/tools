@@ -39,3 +39,4 @@ fi
 "$bin_dir/lazybox$suffix" --version
 "$bin_dir/science$suffix" snapshot orbit --json
 "$bin_dir/screensaver$suffix" snapshot rain --seed 1 --json
+"$bin_dir/apps$suffix" snapshot timer --seconds 60 --elapsed 5 --json
