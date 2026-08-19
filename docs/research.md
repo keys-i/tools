@@ -1,9 +1,9 @@
 # Terminal tool research
 
-Reviewed 2026-08-12 from the requested repositories. The local `research/`
-directory contains shallow clones at the revisions below and is intentionally
-ignored by Git. Category and license describe the upstream project; no source
-or assets are copied into Keys Tools.
+Reviewed 2026-08-12 through 2026-08-14 from the requested repositories. The
+local `research/` directory contains shallow clones at the revisions below and
+is intentionally ignored by Git. Category and license describe the upstream
+project; no source or assets are copied into Keys Tools.
 
 | Project | Revision | Category | Runtime | License |
 | --- | --- | --- | --- | --- |
@@ -60,6 +60,12 @@ or assets are copied into Keys Tools.
   Lazycontainer, or Lazyslurm. One row model replaces their unrelated UI and
   dependency stacks; backend-specific operations remain direct `match` arms,
   not a plugin or trait layer.
+- `science` consolidates the overlapping offline workloads into three owned
+  views: [JPL approximate planetary positions](https://ssd.jpl.nasa.gov/planets/approx_pos.html),
+  bounded VCD logic traces, and streaming ASCII or binary little-endian
+  PLY/`.splat` point clouds. `tuihub`'s todo list duplicates no science workload,
+  while live DSN, plugins, and serial-port control would add network or driver
+  stacks, so they are excluded from this offline binary.
 - Crossterm is the only runtime dependency and owns cross-platform raw input,
   resize events, alternate-screen entry, and terminal restoration. Ratatui is
   excluded because these fixed layouts do not need a widget or layout engine.

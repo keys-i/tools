@@ -5,6 +5,7 @@ fn command(binary: &str) -> Command {
         "fetch" => env!("CARGO_BIN_EXE_fetch"),
         "games" => env!("CARGO_BIN_EXE_games"),
         "lazybox" => env!("CARGO_BIN_EXE_lazybox"),
+        "science" => env!("CARGO_BIN_EXE_science"),
         _ => unreachable!(),
     };
     let mut command = Command::new(path);
@@ -105,4 +106,30 @@ fn lazybox_has_a_stable_cli_without_needing_a_backend() {
         .expect("reject non-terminal dashboard");
     assert_eq!(non_tty.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&non_tty.stderr).contains("needs a terminal"));
+}
+
+#[test]
+fn science_snapshots_orbits_and_validates_inputs() {
+    let orbit = command("science")
+        .args(["snapshot", "orbit", "--days", "0", "--json"])
+        .output()
+        .expect("snapshot orbit");
+    assert!(orbit.status.success());
+    let output = String::from_utf8_lossy(&orbit.stdout);
+    assert!(output.starts_with("{\"view\":\"orbit\""));
+    assert_eq!(output.matches("\"distance_au\"").count(), 8);
+
+    let missing = command("science")
+        .args(["snapshot", "wave"])
+        .output()
+        .expect("reject missing VCD");
+    assert_eq!(missing.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&missing.stderr).contains("needs a VCD file"));
+
+    let interactive = command("science")
+        .args(["open", "orbit"])
+        .output()
+        .expect("reject non-terminal view");
+    assert_eq!(interactive.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&interactive.stderr).contains("need a terminal"));
 }

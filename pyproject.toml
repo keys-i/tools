@@ -9,7 +9,7 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"
 authors = [{ name = "Keys" }]
-keywords = ["cli", "terminal", "system-information", "containers", "slurm", "games"]
+keywords = ["astronomy", "cli", "containers", "games", "point-cloud", "slurm", "system-information", "terminal", "vcd", "waveform"]
 classifiers = [
   "Environment :: Console",
   "Programming Language :: Rust",
