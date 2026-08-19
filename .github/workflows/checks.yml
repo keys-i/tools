@@ -53,7 +53,7 @@ jobs:
 
       - name: Smoke-test wheel in a clean environment
         shell: bash
-        run: bash scripts/smoke-wheel.sh dist/*.whl
+        run: bash tools/scripts/smoke-wheel.sh dist/*.whl
 
   style:
     name: Rust / style

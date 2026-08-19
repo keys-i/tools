@@ -25,11 +25,11 @@ ShellCheck 0.11.0:
 
 ```sh
 actionlint
-shellcheck scripts/*.sh benches/*.sh
+shellcheck tools/scripts/*.sh
 ```
 
 For a performance change, install Hyperfine 1.20.0 and run
-`benches/run.sh` on the same host before and after. Include the command,
+`tools/scripts/benchmarks.sh` on the same host before and after. Include the command,
 sample count, central result, spread, and binary size in the pull request.
 
 ## Change rules

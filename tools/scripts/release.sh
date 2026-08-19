@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-project=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+project=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$project"
 
 fail() {
@@ -134,7 +134,7 @@ prepare_pr() {
     local -a open_branches=()
     : "${BASE_SHA:?}"
     : "${REPOSITORY:?}"
-    release-plz update --config release-plz.toml \
+    release-plz update --config tools/config/release-plz.toml \
         --repo-url "https://github.com/$REPOSITORY"
     if git diff --quiet; then
         echo "release: no unreleased changes"
@@ -159,7 +159,7 @@ prepare_pr() {
         git fetch origin "$branch"
         git switch -c "$branch" --track "origin/$branch"
         git merge --no-edit "$BASE_SHA"
-        release-plz update --config release-plz.toml \
+        release-plz update --config tools/config/release-plz.toml \
             --repo-url "https://github.com/$REPOSITORY"
     elif git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
         fail "$branch already exists; reopen its pull request or remove it explicitly"

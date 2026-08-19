@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+project=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
+cd "$project"
+
 runs=${RUNS:-500}
 fetch=${FETCH:-target/release/fetch}
 fastfetch=${FASTFETCH:-research/fastfetch/build/fastfetch}

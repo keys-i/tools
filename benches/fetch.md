@@ -46,13 +46,13 @@ cmake -S research/fastfetch -B research/fastfetch/build -DCMAKE_BUILD_TYPE=Relea
 cmake --build research/fastfetch/build --config Release
 cargo build --release --manifest-path research/macchina/Cargo.toml
 make -C research/cpufetch
-benches/compare-fetch.sh
+tools/scripts/compare-fetch.sh
 ```
 
 Set `FETCH`, `FASTFETCH`, `MACCHINA`, and `CPUFETCH` when binaries live outside
 their documented defaults. Results are written below ignored `target/benchmarks`.
 The system and combined tables used the default `RUNS=500`; the separately
-reported CPU-only comparison used `RUNS=1000 benches/compare-fetch.sh` and its
+reported CPU-only comparison used `RUNS=1000 tools/scripts/compare-fetch.sh` and its
 `target/benchmarks/cpu.json` result. Build flags and available system libraries
 can change competitor features and timings, so compare results only from the
 same host and build session.

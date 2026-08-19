@@ -22,7 +22,7 @@ Run the same benchmark used by CI:
 
 ```sh
 cargo build --release --locked
-RUNS=100 WARMUP=20 bash benches/run.sh
+RUNS=100 WARMUP=20 bash tools/scripts/benchmarks.sh
 ```
 
 Hyperfine JSON, Markdown, and stripped binary sizes are written below
