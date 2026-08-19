@@ -19,7 +19,7 @@ for eleven game engines and cross-platform terminal input.
 Run the same benchmark used by CI:
 
 ```sh
-RUNS=100 WARMUP=20 bash benches/run.sh
+RUNS=100 WARMUP=20 bash tools/scripts/benchmarks.sh
 ```
 
 Hyperfine JSON, Markdown, and binary sizes are written to

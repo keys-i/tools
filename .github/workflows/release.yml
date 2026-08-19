@@ -55,6 +55,7 @@ jobs:
         uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
         with:
           command: release
+          config: tools/config/release-plz.toml
           dry_run: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -101,7 +102,7 @@ jobs:
           HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
           MERGED: ${{ github.event.pull_request.merged }}
           REPOSITORY: ${{ github.repository }}
-        run: bash scripts/release.sh authorize-release
+        run: bash tools/scripts/release.sh authorize-release
 
       - name: Create semantic tag and GitHub release
         if: steps.authorize.outputs.authorized == 'true'
@@ -109,6 +110,7 @@ jobs:
         uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
         with:
           command: release
+          config: tools/config/release-plz.toml
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -136,7 +138,7 @@ jobs:
         env:
           MANUAL_TAG: ${{ inputs.tag }}
           RELEASES: ${{ needs.semantic.outputs.releases }}
-        run: bash scripts/release.sh select-tag
+        run: bash tools/scripts/release.sh select-tag
 
   metadata:
     name: Validate release
@@ -159,7 +161,7 @@ jobs:
         shell: bash
         env:
           TAG: ${{ needs.select.outputs.tag }}
-        run: bash scripts/release.sh validate-metadata
+        run: bash tools/scripts/release.sh validate-metadata
 
   wheels:
     name: Wheel / ${{ matrix.target }}
@@ -201,7 +203,7 @@ jobs:
 
       - name: Smoke-test wheel in a clean environment
         shell: bash
-        run: bash scripts/smoke-wheel.sh dist/*.whl
+        run: bash tools/scripts/smoke-wheel.sh dist/*.whl
 
       - name: Store wheel
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -239,7 +241,7 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ needs.metadata.outputs.version }}
-        run: bash scripts/release.sh write-checksums
+        run: bash tools/scripts/release.sh write-checksums
 
       - name: Reconcile wheels and checksums
         shell: bash
@@ -247,7 +249,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           TAG: ${{ needs.metadata.outputs.tag }}
-        run: bash scripts/release.sh reconcile-github
+        run: bash tools/scripts/release.sh reconcile-github
 
       - name: Attest wheels
         uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
@@ -306,7 +308,7 @@ jobs:
         shell: bash
         env:
           VERSION: ${{ needs.metadata.outputs.version }}
-        run: bash scripts/release.sh verify-pypi
+        run: bash tools/scripts/release.sh verify-pypi
 
   release-pr:
     name: Prepare next semantic release
@@ -349,4 +351,4 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
-        run: bash scripts/release.sh prepare-pr
+        run: bash tools/scripts/release.sh prepare-pr

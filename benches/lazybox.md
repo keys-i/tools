@@ -19,7 +19,7 @@ Run 100 measured launches after 20 warmups and record all three packaged tools:
 
 ```sh
 cargo build --release --locked
-RUNS=100 WARMUP=20 bash benches/run.sh
+RUNS=100 WARMUP=20 bash tools/scripts/benchmarks.sh
 ```
 
 Results and stripped binary sizes are written below `target/benchmarks/`.

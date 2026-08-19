@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - benches/**
+      - tools/scripts/benchmarks.sh
+      - tools/scripts/compare-fetch.sh
       - src/**
       - Cargo.lock
       - Cargo.toml
@@ -13,6 +15,8 @@ on:
     branches: [forge]
     paths:
       - benches/**
+      - tools/scripts/benchmarks.sh
+      - tools/scripts/compare-fetch.sh
       - src/**
       - Cargo.lock
       - Cargo.toml
@@ -58,7 +62,7 @@ jobs:
       - name: Benchmark each tool
         env:
           RUNS: ${{ inputs.runs || 100 }}
-        run: benches/run.sh
+        run: tools/scripts/benchmarks.sh
 
       - name: Show results
         run: cat target/benchmarks/summary.md >> "$GITHUB_STEP_SUMMARY"
