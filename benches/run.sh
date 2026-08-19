@@ -19,9 +19,7 @@ for binary in "$fetch" "$games"; do
     }
 done
 
-mkdir -p "$output/empty"
-export TOOLS_GAME_PATH="$output/empty"
-export XDG_DATA_HOME="$output/empty"
+mkdir -p "$output"
 
 hyperfine --shell=none --warmup "$warmup" --runs "$runs" \
     --export-json "$output/tools.json" \

@@ -6,11 +6,22 @@ set -euo pipefail
     exit 2
 }
 
+python_command=python
+command -v "$python_command" >/dev/null 2>&1 || python_command=python3
+"$python_command" - "$1" <<'PY'
+import sys
+import zipfile
+
+with zipfile.ZipFile(sys.argv[1]) as wheel:
+    notices = [name for name in wheel.namelist() if name.endswith("THIRD_PARTY_LICENSES.md")]
+    assert notices, "wheel omits third-party license notices"
+    text = wheel.read(notices[0]).decode()
+    assert "crossterm 0.29.0" in text and "Apache License" in text
+PY
+
 test_dir=$(mktemp -d)
 trap 'rm -rf -- "$test_dir"' EXIT
 
-python_command=python
-command -v "$python_command" >/dev/null 2>&1 || python_command=python3
 "$python_command" -m venv "$test_dir"
 if [[ ${RUNNER_OS:-} == Windows ]]; then
     python_bin="$test_dir/Scripts/python.exe"

@@ -25,4 +25,5 @@ Source = "https://github.com/keys-i/tools"
 [tool.maturin]
 bindings = "bin"
 compatibility = "pypi"
+include = [{ path = "docs/THIRD_PARTY_LICENSES.md", format = ["sdist", "wheel"] }]
 strip = true
