@@ -1,6 +1,6 @@
 # Terminal tool research
 
-Reviewed 2026-08-12 through 2026-08-14 from the requested repositories. The
+Reviewed 2026-08-12 through 2026-08-17 from the requested repositories. The
 local `research/` directory contains shallow clones at the revisions below and
 is intentionally ignored by Git. Category and license describe the upstream
 project; no source or assets are copied into Keys Tools.
@@ -15,7 +15,7 @@ project; no source or assets are copied into Keys Tools.
 | [cloudflare-speed-cli](https://github.com/kavehtehrani/cloudflare-speed-cli) | `89c2b2afa064` | speed test | Rust | GPL-3.0 |
 | [astroterm](https://github.com/da-luce/astroterm) | `5c571959dbd7` | planetarium | C | MIT |
 | [gitlogue](https://github.com/unhappychoice/gitlogue) | `1e59c4feafc3` | Git animation | Rust | ISC |
-| [neo](https://github.com/st3w/neo) | `6ba93ac630b0` | screensaver | C++ | no license detected |
+| [neo](https://github.com/st3w/neo) | `6ba93ac630b0` | screensaver | C++ | GPL-3.0 |
 | [rxpipes](https://github.com/inunix3/rxpipes) | `d99c35f2d1d5` | screensaver | Rust | MIT |
 | [weathr](https://github.com/veirt/weathr) | `7d403a0c4039` | weather TUI | Rust | GPL-3.0 |
 | [pond](https://gitlab.com/alice-lefebvre/pond) | `6f7620940d89` | simulation | C | GPL-3.0-or-later |
@@ -66,6 +66,14 @@ project; no source or assets are copied into Keys Tools.
   PLY/`.splat` point clouds. `tuihub`'s todo list duplicates no science workload,
   while live DSN, plugins, and serial-port control would add network or driver
   stacks, so they are excluded from this offline binary.
+- `screensaver` owns four generated scenes plus bounded local Git-history and
+  GIF87a/89a views. Its Git path uses the installed `git` command's
+  [documented bounded pretty format](https://git-scm.com/docs/pretty-formats.html);
+  its GIF parser follows the
+  [GIF89a block and LZW specification](https://www.w3.org/Graphics/GIF/spec-gif89a.txt).
+  It does not copy upstream art or code, and it excludes live weather,
+  geolocation, Tenor, URLs, videos, exports, plugins, and caches because those
+  require unrelated privacy, TLS, codec, persistence, or subprocess surfaces.
 - Crossterm is the only runtime dependency and owns cross-platform raw input,
   resize events, alternate-screen entry, and terminal restoration. Ratatui is
   excluded because these fixed layouts do not need a widget or layout engine.

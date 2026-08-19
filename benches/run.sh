@@ -9,12 +9,13 @@ fetch="$project/target/release/fetch"
 games="$project/target/release/games"
 lazybox="$project/target/release/lazybox"
 science="$project/target/release/science"
+screensaver="$project/target/release/screensaver"
 
 command -v hyperfine >/dev/null 2>&1 || {
     echo "benchmarks: install hyperfine 1.20.0" >&2
     exit 127
 }
-for binary in "$fetch" "$games" "$lazybox" "$science"; do
+for binary in "$fetch" "$games" "$lazybox" "$science" "$screensaver"; do
     [[ -x "$binary" ]] || {
         echo "benchmarks: run cargo build --release --locked first" >&2
         exit 2
@@ -29,12 +30,14 @@ hyperfine --shell=none --warmup "$warmup" --runs "$runs" \
     --command-name fetch "$fetch --plain" \
     --command-name games "$games list --plain" \
     --command-name lazybox "$lazybox --version" \
-    --command-name science "$science snapshot orbit --plain"
+    --command-name science "$science snapshot orbit --plain" \
+    --command-name screensaver "$screensaver snapshot rain --seed 1 --frame 24 --plain"
 
 fetch_size=$(wc -c < "$fetch" | tr -d ' ')
 games_size=$(wc -c < "$games" | tr -d ' ')
 lazybox_size=$(wc -c < "$lazybox" | tr -d ' ')
 science_size=$(wc -c < "$science" | tr -d ' ')
+screensaver_size=$(wc -c < "$screensaver" | tr -d ' ')
 {
     echo "## Keys Tools benchmarks"
     echo
@@ -50,6 +53,7 @@ science_size=$(wc -c < "$science" | tr -d ' ')
     echo "| games | $games_size |"
     echo "| lazybox | $lazybox_size |"
     echo "| science | $science_size |"
+    echo "| screensaver | $screensaver_size |"
     echo
     echo "Hyperfine $runs runs after $warmup warmups; hosted-runner results are informational."
 } > "$output/summary.md"

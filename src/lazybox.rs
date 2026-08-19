@@ -202,7 +202,7 @@ fn load(backend: Backend) -> Result<Snapshot, String> {
     Ok(Snapshot { backend, rows })
 }
 
-fn command_output(
+pub(crate) fn command_output(
     program: &str,
     arguments: &[&str],
     include_stderr: bool,
@@ -356,7 +356,7 @@ fn parse_slurm(output: &str) -> Vec<Row> {
         .collect()
 }
 
-fn clean(value: &str) -> String {
+pub(crate) fn clean(value: &str) -> String {
     value
         .chars()
         .filter(|character| !character.is_control())
