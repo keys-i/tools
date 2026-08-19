@@ -14,7 +14,7 @@ stable_tag() {
 }
 
 release_branch() {
-    [[ $1 =~ ^release[0-9]+$ ]]
+    [[ $1 =~ ^releaseplz[0-9]+x[0-9]+x[0-9]+$ ]]
 }
 
 package_version() {
@@ -143,14 +143,14 @@ prepare_pr() {
     version=$(package_version)
     [[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] ||
         fail "invalid generated version $version"
-    branch=release${version//./}
+    branch=releaseplz${version//./x}
     release_branch "$branch" || fail "invalid branch $branch"
 
     git config user.name github-actions[bot]
     git config user.email 41898282+github-actions[bot]@users.noreply.github.com
     mapfile -t open_branches < <(
         gh pr list --state open --limit 100 --json headRefName \
-            --jq '.[] | .headRefName | select(test("^release[0-9]+$"))'
+            --jq '.[] | .headRefName | select(test("^releaseplz[0-9]+x[0-9]+x[0-9]+$"))'
     )
     [[ ${#open_branches[@]} -le 1 ]] || fail "multiple release pull requests are open"
     if [[ ${#open_branches[@]} -eq 1 ]]; then
@@ -197,14 +197,14 @@ self_test() {
     if stable_tag 1.2.3 || stable_tag v1.2.3-rc.1; then
         exit 1
     fi
-    release_branch release123 || exit 1
-    if release_branch release-plz-123 || release_branch feature123; then
+    release_branch releaseplz1x2x3 || exit 1
+    if release_branch release123 || release_branch feature123; then
         exit 1
     fi
-    MERGED=true BASE_BRANCH=forge HEAD_BRANCH=release123 \
+    MERGED=true BASE_BRANCH=forge HEAD_BRANCH=releaseplz1x2x3 \
         HEAD_REPOSITORY=keys-i/tools REPOSITORY=keys-i/tools \
         authorized_release || exit 1
-    if MERGED=false BASE_BRANCH=forge HEAD_BRANCH=release123 \
+    if MERGED=false BASE_BRANCH=forge HEAD_BRANCH=releaseplz1x2x3 \
         HEAD_REPOSITORY=keys-i/tools REPOSITORY=keys-i/tools \
         authorized_release; then
         exit 1
@@ -214,12 +214,12 @@ self_test() {
         authorized_release; then
         exit 1
     fi
-    if MERGED=true BASE_BRANCH=forge HEAD_BRANCH=release123 \
+    if MERGED=true BASE_BRANCH=forge HEAD_BRANCH=releaseplz1x2x3 \
         HEAD_REPOSITORY=someone/tools REPOSITORY=keys-i/tools \
         authorized_release; then
         exit 1
     fi
-    if MERGED=true BASE_BRANCH=main HEAD_BRANCH=release123 \
+    if MERGED=true BASE_BRANCH=main HEAD_BRANCH=releaseplz1x2x3 \
         HEAD_REPOSITORY=keys-i/tools REPOSITORY=keys-i/tools \
         authorized_release; then
         exit 1
