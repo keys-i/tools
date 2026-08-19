@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project=$(CDPATH='' cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+runs=${RUNS:-100}
+warmup=${WARMUP:-20}
+output="$project/target/benchmarks"
+fetch="$project/target/release/fetch"
+games="$project/target/release/games"
+
+command -v hyperfine >/dev/null 2>&1 || {
+    echo "benchmarks: install hyperfine 1.20.0" >&2
+    exit 127
+}
+for binary in "$fetch" "$games"; do
+    [[ -x "$binary" ]] || {
+        echo "benchmarks: run cargo build --release --locked first" >&2
+        exit 2
+    }
+done
+
+mkdir -p "$output/empty"
+export TOOLS_GAME_PATH="$output/empty"
+export XDG_DATA_HOME="$output/empty"
+
+hyperfine --shell=none --warmup "$warmup" --runs "$runs" \
+    --export-json "$output/tools.json" \
+    --export-markdown "$output/tools.md" \
+    --command-name fetch "$fetch --plain" \
+    --command-name games "$games list --plain"
+
+fetch_size=$(wc -c < "$fetch" | tr -d ' ')
+games_size=$(wc -c < "$games" | tr -d ' ')
+{
+    echo "## Keys Tools benchmarks"
+    echo
+    echo "Commit: \`${GITHUB_SHA:-local}\`"
+    echo
+    echo "Environment: \`$(uname -smr)\`; \`$(rustc --version)\`; \`$(hyperfine --version | head -n 1)\`"
+    echo
+    cat "$output/tools.md"
+    echo
+    echo "| Binary | Size (bytes) |"
+    echo "| --- | ---: |"
+    echo "| fetch | $fetch_size |"
+    echo "| games | $games_size |"
+    echo
+    echo "Hyperfine $runs runs after $warmup warmups; hosted-runner results are informational."
+} > "$output/summary.md"

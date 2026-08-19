@@ -1,0 +1,74 @@
+name: Bug report
+description: Report reproducible incorrect behavior
+title: "bug: "
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        For vulnerabilities, stop and use the private security link in the
+        template chooser.
+  - type: input
+    id: command
+    attributes:
+      label: Command
+      description: The exact fetch or games command that failed.
+      placeholder: fetch --json
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Paste fetch --version or games --version.
+      placeholder: fetch 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - macOS
+        - Linux
+        - Windows
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Installation
+      options:
+        - uv / PyPI
+        - GitHub release wheel
+        - Source build
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Reproduction
+      description: Minimal numbered steps with any non-secret manifest content.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior and output
+      render: shell
+    validations:
+      required: true
+  - type: checkboxes
+    id: conduct
+    attributes:
+      label: Code of Conduct
+      options:
+        - label: I will follow the repository Code of Conduct.
+          required: true

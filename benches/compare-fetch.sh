@@ -10,7 +10,7 @@ cpufetch=${CPUFETCH:-research/cpufetch/cpufetch}
 for command in hyperfine "$fetch" "$fastfetch" "$macchina" "$cpufetch"; do
     command -v "$command" >/dev/null 2>&1 || {
         printf 'benchmark: missing %s\n' "$command" >&2
-        printf 'build the pinned research prerequisites listed in docs/benchmarks.md\n' >&2
+        printf 'build the pinned research prerequisites listed in benches/fetch.md\n' >&2
         exit 127
     }
 done

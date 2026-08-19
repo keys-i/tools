@@ -1,0 +1,72 @@
+name: Benchmarks
+
+on:
+  pull_request:
+    paths:
+      - benches/**
+      - src/**
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - .github/workflows/benchmarks.yml
+  push:
+    branches: [forge]
+    paths:
+      - benches/**
+      - src/**
+      - Cargo.lock
+      - Cargo.toml
+      - rust-toolchain.toml
+      - .github/workflows/benchmarks.yml
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+    inputs:
+      runs:
+        description: Measured runs per tool
+        required: true
+        default: 100
+        type: number
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tools:
+    name: fetch + games
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build release binaries
+        run: cargo build --release --locked
+
+      - name: Install Hyperfine
+        uses: taiki-e/install-action@b20dedce73af6905cdc30d6611090c9b67557c8d # v2
+        with:
+          tool: hyperfine@1.20.0
+
+      - name: Benchmark each tool
+        env:
+          RUNS: ${{ inputs.runs || 100 }}
+        run: benches/run.sh
+
+      - name: Show results
+        run: cat target/benchmarks/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Store results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmarks-${{ github.sha }}
+          path: target/benchmarks/
+          if-no-files-found: error
+          retention-days: 30

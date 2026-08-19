@@ -1,0 +1,10 @@
+[workspace]
+git_only = true
+publish = false
+git_release_type = "auto"
+release_always = true
+
+[[package]]
+name = "keys-tools"
+changelog_path = "docs/CHANGELOG.md"
+git_tag_name = "v{{ version }}"
