@@ -332,6 +332,12 @@ jobs:
           persist-credentials: false
           ref: ${{ github.event.pull_request.merge_commit_sha }}
 
+      - name: Attach merged commit
+        shell: bash
+        run: |
+          git switch --create release-workflow
+          git branch --set-upstream-to=origin/forge
+
       - name: Install Release-plz
         uses: taiki-e/install-action@b20dedce73af6905cdc30d6611090c9b67557c8d # v2
         with:
