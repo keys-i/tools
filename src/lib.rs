@@ -34,6 +34,18 @@ pub fn json_string(value: &str) -> String {
     escaped
 }
 
+pub fn human_text(value: &str) -> String {
+    let mut output = String::with_capacity(value.len());
+    for character in value.chars() {
+        if character.is_control() {
+            output.extend(character.escape_default());
+        } else {
+            output.push(character);
+        }
+    }
+    output
+}
+
 pub fn human_bytes(bytes: u64) -> String {
     const UNITS: [&str; 5] = ["B", "KiB", "MiB", "GiB", "TiB"];
     let mut value = bytes as f64;
@@ -56,6 +68,7 @@ mod tests {
     #[test]
     fn escapes_json_and_formats_bytes() {
         assert_eq!(json_string("a\n\"b"), "\"a\\n\\\"b\"");
+        assert_eq!(human_text("a\x1b\x07b"), "a\\u{1b}\\u{7}b");
         assert_eq!(human_bytes(512), "512 B");
         assert_eq!(human_bytes(3 * 1024 * 1024 * 1024), "3.0 GiB");
     }
