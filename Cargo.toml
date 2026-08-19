@@ -28,6 +28,10 @@ path = "src/bin/science.rs"
 name = "screensaver"
 path = "src/bin/screensaver.rs"
 
+[[bin]]
+name = "apps"
+path = "src/bin/apps.rs"
+
 [dependencies]
 crossterm = { version = "=0.29.0", default-features = false, features = ["events", "windows"] }
 

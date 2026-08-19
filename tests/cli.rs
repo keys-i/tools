@@ -1,7 +1,9 @@
-use std::process::Command;
+use std::io::Write as _;
+use std::process::{Command, Output, Stdio};
 
 fn command(binary: &str) -> Command {
     let path = match binary {
+        "apps" => env!("CARGO_BIN_EXE_apps"),
         "fetch" => env!("CARGO_BIN_EXE_fetch"),
         "games" => env!("CARGO_BIN_EXE_games"),
         "lazybox" => env!("CARGO_BIN_EXE_lazybox"),
@@ -14,6 +16,22 @@ fn command(binary: &str) -> Command {
     command
 }
 
+fn command_with_stdin(arguments: &[&str], input: &str) -> Output {
+    let mut child = command("apps")
+        .args(arguments)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("start apps");
+    child
+        .stdin
+        .take()
+        .expect("apps stdin")
+        .write_all(input.as_bytes())
+        .expect("write apps input");
+    child.wait_with_output().expect("finish apps")
+}
+
 #[test]
 fn fetch_supports_plain_json_and_invalid_input() {
     let plain = command("fetch").arg("--plain").output().expect("run fetch");
@@ -24,6 +42,16 @@ fn fetch_supports_plain_json_and_invalid_input() {
     let json = command("fetch").arg("--json").output().expect("run fetch");
     assert!(json.status.success());
     assert!(String::from_utf8_lossy(&json.stdout).starts_with("{\"host\":"));
+
+    let hostile = command("fetch")
+        .arg("--plain")
+        .env("TERM_PROGRAM", "term\x1b]0;owned\x07")
+        .output()
+        .expect("sanitize terminal name");
+    assert!(hostile.status.success());
+    let output = String::from_utf8_lossy(&hostile.stdout);
+    assert!(output.contains("term\\u{1b}]0;owned\\u{7}"));
+    assert!(!output.contains('\x1b') && !output.contains('\x07'));
 
     let invalid = command("fetch").arg("--wat").output().expect("run fetch");
     assert_eq!(invalid.status.code(), Some(2));
@@ -166,6 +194,74 @@ fn screensaver_snapshots_owned_scenes_and_validates_inputs() {
         .args(["open", "pond"])
         .output()
         .expect("reject non-terminal scene");
+    assert_eq!(interactive.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&interactive.stderr).contains("need a terminal"));
+}
+
+#[test]
+fn apps_runs_owned_local_workflows_and_validates_inputs() {
+    let read = command_with_stdin(
+        &["snapshot", "read", "-", "--find", "needle", "--json"],
+        "first\nNeedle here\nlast\n",
+    );
+    assert!(read.status.success());
+    assert!(String::from_utf8_lossy(&read.stdout).contains("\"matchCount\":1"));
+
+    let table = command_with_stdin(
+        &["snapshot", "table", "-", "--delimiter", "comma", "--json"],
+        "name,note\nAda,\"line one\nline two\"\nLin,done\n",
+    );
+    assert!(table.status.success());
+    let output = String::from_utf8_lossy(&table.stdout);
+    assert!(output.contains("\"rowCount\":2"));
+    assert!(output.contains("line one\\nline two"));
+
+    let plain_table = command_with_stdin(
+        &["snapshot", "table", "-", "--delimiter", "comma", "--plain"],
+        "name,note\nAda,\"line one\rline two\"\n",
+    );
+    assert!(plain_table.status.success());
+    let output = String::from_utf8_lossy(&plain_table.stdout);
+    assert!(output.contains("line one\\rline two"));
+    assert!(!output.contains('\r'));
+
+    let slides = command_with_stdin(
+        &["snapshot", "slides", "-", "--page", "2", "--json"],
+        "# One\n---\n# Two\nbody\n",
+    );
+    assert!(slides.status.success());
+    assert!(String::from_utf8_lossy(&slides.stdout).contains("\"page\":2"));
+
+    for arguments in [
+        [
+            "snapshot", "paint", "--width", "5", "--height", "2", "--json",
+        ]
+        .as_slice(),
+        [
+            "snapshot",
+            "timer",
+            "--seconds",
+            "60",
+            "--elapsed",
+            "5",
+            "--json",
+        ]
+        .as_slice(),
+    ] {
+        assert!(
+            command("apps")
+                .args(arguments)
+                .output()
+                .expect("snapshot app")
+                .status
+                .success()
+        );
+    }
+
+    let interactive = command("apps")
+        .args(["open", "timer", "--seconds", "1"])
+        .output()
+        .expect("reject non-terminal app");
     assert_eq!(interactive.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&interactive.stderr).contains("need a terminal"));
 }

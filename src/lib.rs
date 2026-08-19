@@ -1,3 +1,4 @@
+pub mod apps;
 pub mod fetch;
 pub mod games;
 pub mod lazybox;

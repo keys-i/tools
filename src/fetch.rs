@@ -2,7 +2,7 @@ use std::env;
 #[cfg(target_os = "linux")]
 use std::fs;
 
-use crate::{VERSION, human_bytes, json_string, use_color};
+use crate::{VERSION, human_bytes, human_text, json_string, use_color};
 
 const HELP: &str = "Fast system and CPU overview\n\nUsage: fetch [--plain | --json]\n\nOptions:\n  --plain     Stable text without decoration\n  --json      Machine-readable JSON\n  -h, --help  Show this help\n  -V, --version  Show the version";
 
@@ -111,7 +111,7 @@ fn fields(snapshot: &Snapshot) -> Vec<(&'static str, String)> {
 
 fn print_plain(snapshot: &Snapshot) {
     for (name, value) in fields(snapshot) {
-        println!("{name}\t{value}");
+        println!("{name}\t{}", human_text(&value));
     }
 }
 
@@ -123,12 +123,14 @@ fn print_styled(snapshot: &Snapshot) {
     let user = env::var("USER")
         .or_else(|_| env::var("USERNAME"))
         .unwrap_or_else(|_| "user".into());
-    println!(
-        "{CYAN}╭─ ◈ FETCH {MUTED}//{RESET} {MAGENTA}{user}@{}{RESET}",
-        snapshot.host
-    );
+    let user = human_text(&user);
+    let host = human_text(&snapshot.host);
+    println!("{CYAN}╭─ ◈ FETCH {MUTED}//{RESET} {MAGENTA}{user}@{host}{RESET}");
     for (name, value) in fields(snapshot) {
-        println!("{CYAN}│{RESET} {MUTED}{name:8}{RESET} {value}");
+        println!(
+            "{CYAN}│{RESET} {MUTED}{name:8}{RESET} {}",
+            human_text(&value)
+        );
     }
     println!("{CYAN}╰─{RESET}");
 }

@@ -1,6 +1,6 @@
 # Terminal tool research
 
-Reviewed 2026-08-12 through 2026-08-17 from the requested repositories. The
+Reviewed 2026-08-12 through 2026-08-18 from the requested repositories. The
 local `research/` directory contains shallow clones at the revisions below and
 is intentionally ignored by Git. Category and license describe the upstream
 project; no source or assets are copied into Keys Tools.
@@ -74,6 +74,13 @@ project; no source or assets are copied into Keys Tools.
   It does not copy upstream art or code, and it excludes live weather,
   geolocation, Tenor, URLs, videos, exports, plugins, and caches because those
   require unrelated privacy, TLS, codec, persistence, or subprocess surfaces.
+- `apps` owns the common local workflows from the final ten projects: bounded
+  text reading/search, quoted CSV/TSV tables, Markdown slides, text-canvas
+  painting, and a monotonic timer. PDF rasterization requires MuPDF; modern web
+  rendering requires Firefox; GUI-in-terminal and terminal-window management
+  require Wayland/PTY engines; weather and throughput tests require TLS and
+  live services. Those unrelated engines remain excluded instead of being
+  hidden behind launchers or adding large dependency trees.
 - Crossterm is the only runtime dependency and owns cross-platform raw input,
   resize events, alternate-screen entry, and terminal restoration. Ratatui is
   excluded because these fixed layouts do not need a widget or layout engine.

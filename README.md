@@ -2,6 +2,7 @@
 
 Small native terminal tools with one job each:
 
+- `apps` reads text, explores CSV/TSV, presents Markdown, paints text canvases, and runs timers.
 - `fetch` shows a fast system and CPU overview with styled, plain, or JSON output.
 - `games` is a native clean-room terminal arcade with eleven complete game modes.
 - `lazybox` is one direct dashboard for Docker containers, Apple containers, and Slurm jobs.
@@ -31,6 +32,7 @@ Rust 1.97.1 is pinned for builds.
 
 ```sh
 cargo build --release --locked
+./target/release/apps
 ./target/release/fetch
 ./target/release/games
 ./target/release/lazybox
@@ -41,6 +43,10 @@ cargo build --release --locked
 Useful non-interactive forms:
 
 ```sh
+apps snapshot read notes.md --find TODO --json
+apps snapshot table data.csv --limit 25 --plain
+apps snapshot slides talk.md --page 2
+apps snapshot timer --seconds 1500 --elapsed 60 --json
 fetch --plain
 fetch --json
 games list --json
@@ -106,6 +112,20 @@ Interactive output updates only changed terminal rows, supports resize and
 `NO_COLOR`, and can be slowed to one frame per second with `--fps 1`. Plain and
 JSON snapshots provide a non-animated alternative.
 
+## Native apps
+
+`apps` owns five local workflows in one binary: bounded UTF-8 reading and
+search, quoted CSV/TSV parsing, Markdown slide navigation, text-canvas painting,
+and a monotonic countdown timer. Every file input is opened once and capped at
+32 MiB. Tables are additionally capped at 100,000 rows, 256 columns, and two
+million cells. Paint output uses a completed temporary file and an atomic
+no-overwrite hard link, so it cannot replace an existing file.
+
+The binary does not bundle or launch MuPDF, Firefox, a browser engine, a
+Wayland compositor, a PTY server, TLS, weather/speed services, plugins, or
+copied upstream code and assets. Pipe already-fetched text through `-` when a
+local snapshot is enough.
+
 ## Scope
 
 `fetch` has detailed native collection on macOS and Linux and a smaller
@@ -120,6 +140,8 @@ The [science benchmark](benches/science.md) measures an offline orbit snapshot
 and binary size; file parsing latency remains input-dependent.
 The [screensaver benchmark](benches/screensaver.md) measures one deterministic
 generated snapshot and binary size; Git and GIF latency remains input-dependent.
+The [apps benchmark](benches/apps.md) measures one deterministic timer snapshot
+and binary size; file parsing and interactive latency remain input-dependent.
 
 ## Project
 
