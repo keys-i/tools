@@ -36,3 +36,4 @@ fi
 "$python_bin" -m pip install --disable-pip-version-check --no-cache-dir --no-deps "$1"
 "$bin_dir/fetch$suffix" --json
 "$bin_dir/games$suffix" list --json
+"$bin_dir/lazybox$suffix" --version

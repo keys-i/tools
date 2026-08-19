@@ -16,11 +16,6 @@ Measured 2026-08-14 on Darwin 25.5.0 ARM64 with Rust 1.97.1 and Hyperfine
 The two list commands are not equivalent workloads, so their timing difference
 is not a performance claim. The native binary adds 84,496 bytes (about 24%)
 for eleven game engines and cross-platform terminal input.
-The macOS ARM64 wheel is 410,899 bytes, including both binaries, package
-metadata, project and dependency licenses, and CycloneDX SBOM; that is 67,191
-bytes (about 20%) over
-the prior 343,708-byte wheel.
-
 Run the same benchmark used by CI:
 
 ```sh

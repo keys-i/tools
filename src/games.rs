@@ -5,16 +5,13 @@ mod turns;
 use std::io::{self, IsTerminal as _, Write};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use crossterm::cursor::{Hide, MoveTo, Show};
+use crossterm::cursor::MoveTo;
 use crossterm::event::{self, Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::queue;
 use crossterm::style::{Color, Print, ResetColor, SetForegroundColor};
-use crossterm::terminal::{
-    BeginSynchronizedUpdate, Clear, ClearType, DisableLineWrap, EnableLineWrap,
-    EndSynchronizedUpdate, EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode,
-    enable_raw_mode, size,
-};
-use crossterm::{execute, queue};
+use crossterm::terminal::{BeginSynchronizedUpdate, Clear, ClearType, EndSynchronizedUpdate, size};
 
+use crate::terminal::Session;
 use crate::{VERSION, json_string, use_color};
 
 const HELP: &str = "Native clean-room terminal arcade\n\nUsage:\n  games\n  games list [--plain | --json]\n  games info NAME\n  games run NAME [--seed NUMBER]\n\nOptions:\n  --plain       Stable text without decoration\n  --json        Machine-readable game list\n  --seed NUMBER Reproducible randomized setup\n  -h, --help    Show this help\n  -V, --version Show the version\n\nInteractive controls: arrows or WASD; Esc returns to the menu. Most modes use r to restart and q to quit; text modes use Ctrl-R and Ctrl-C.";
@@ -284,7 +281,7 @@ fn session_seed() -> u64 {
 }
 
 fn interactive(initial: Option<&str>, mut seed: u64) -> Result<i32, String> {
-    let _terminal = TerminalSession::enter().map_err(|error| format!("terminal: {error}"))?;
+    let _terminal = Session::enter().map_err(|error| format!("terminal: {error}"))?;
     let mut stdout = io::stdout();
     let mut selected = initial
         .and_then(|name| MODES.iter().position(|mode| mode.name == name))
@@ -517,37 +514,6 @@ fn write_centered<W: Write>(
         queue!(stdout, ResetColor)?;
     }
     Ok(())
-}
-
-struct TerminalSession;
-
-impl TerminalSession {
-    fn enter() -> io::Result<Self> {
-        enable_raw_mode()?;
-        if let Err(error) = execute!(io::stdout(), EnterAlternateScreen, Hide, DisableLineWrap) {
-            restore_terminal();
-            return Err(error);
-        }
-        Ok(Self)
-    }
-}
-
-impl Drop for TerminalSession {
-    fn drop(&mut self) {
-        restore_terminal();
-    }
-}
-
-fn restore_terminal() {
-    let _ = execute!(
-        io::stdout(),
-        EndSynchronizedUpdate,
-        ResetColor,
-        Show,
-        EnableLineWrap,
-        LeaveAlternateScreen
-    );
-    let _ = disable_raw_mode();
 }
 
 #[cfg(test)]

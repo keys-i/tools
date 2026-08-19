@@ -16,6 +16,10 @@ path = "src/bin/fetch.rs"
 name = "games"
 path = "src/bin/games.rs"
 
+[[bin]]
+name = "lazybox"
+path = "src/bin/lazybox.rs"
+
 [dependencies]
 crossterm = { version = "=0.29.0", default-features = false, features = ["events", "windows"] }
 

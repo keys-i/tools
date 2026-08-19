@@ -4,6 +4,7 @@ fn command(binary: &str) -> Command {
     let path = match binary {
         "fetch" => env!("CARGO_BIN_EXE_fetch"),
         "games" => env!("CARGO_BIN_EXE_games"),
+        "lazybox" => env!("CARGO_BIN_EXE_lazybox"),
         _ => unreachable!(),
     };
     let mut command = Command::new(path);
@@ -73,4 +74,35 @@ fn games_describes_native_modes_and_requires_a_terminal_to_play() {
         .expect("reject non-terminal play");
     assert_eq!(non_tty.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&non_tty.stderr).contains("need a terminal"));
+}
+
+#[test]
+fn lazybox_has_a_stable_cli_without_needing_a_backend() {
+    let help = command("lazybox")
+        .arg("--help")
+        .output()
+        .expect("show help");
+    assert!(help.status.success());
+    assert!(String::from_utf8_lossy(&help.stdout).contains("lazybox snapshot"));
+
+    let invalid = command("lazybox")
+        .args(["snapshot", "--backend", "missing"])
+        .output()
+        .expect("reject backend");
+    assert_eq!(invalid.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&invalid.stderr).contains("unknown backend"));
+
+    let misplaced = command("lazybox")
+        .args(["open", "--plain"])
+        .output()
+        .expect("reject snapshot format");
+    assert_eq!(misplaced.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&misplaced.stderr).contains("snapshot options"));
+
+    let non_tty = command("lazybox")
+        .arg("open")
+        .output()
+        .expect("reject non-terminal dashboard");
+    assert_eq!(non_tty.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&non_tty.stderr).contains("needs a terminal"));
 }

@@ -55,6 +55,11 @@ or assets are copied into Keys Tools.
   high-level behavior. It uses an original implementation, maps, text, words,
   and ASCII assets; no upstream source, data, branding, save format, or executable is
   copied, linked, or launched.
+- `lazybox` owns a small dashboard and directly calls the installed `docker`,
+  Apple `container`, or Slurm commands. It does not launch or embed Lazydocker,
+  Lazycontainer, or Lazyslurm. One row model replaces their unrelated UI and
+  dependency stacks; backend-specific operations remain direct `match` arms,
+  not a plugin or trait layer.
 - Crossterm is the only runtime dependency and owns cross-platform raw input,
   resize events, alternate-screen entry, and terminal restoration. Ratatui is
   excluded because these fixed layouts do not need a widget or layout engine.
@@ -62,4 +67,4 @@ or assets are copied into Keys Tools.
   which put native binaries on the environment `PATH`. PyO3 is excluded because
   the commands expose no Python API; native wheels are required per
   OS/architecture. [`uv tool install`](https://docs.astral.sh/uv/concepts/tools/)
-  then exposes both commands from an isolated tool environment.
+  then exposes all commands from an isolated tool environment.
